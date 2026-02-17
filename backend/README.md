@@ -19,6 +19,16 @@
 - `POST /workflows/decompose`: Workflow 実行開始（非同期）
 - `GET /workflows/:id`: Workflow 状態確認
 
+## 構成
+
+このバックエンドは、厳密な DDD ではなく、Cloudflare Workers + Hono で一般的な
+「薄いエントリポイント + ルート層 + 機能単位のサービス層」構成です。
+
+- `src/index.ts`: Worker エントリポイント（app生成と Workflow export のみ）
+- `src/app.ts`: Hono app の組み立て
+- `src/routes/*`: HTTP ルーティング
+- `src/features/task-decompose/*`: 入力検証、AI呼び出し、Workflow 実装
+
 ## 現在のデプロイ方針
 
 - 通常のデプロイは GitHub Actions (`.github/workflows/deploy-workers.yml`) で自動実行します。
