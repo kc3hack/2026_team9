@@ -23,7 +23,8 @@
 - ISR 的な再生成（時間ベースの再検証）
 - `revalidatePath` / `revalidateTag` を使った再検証フロー
 
-つまり、`export const revalidate`は`dynamic`や`no-store`以外は指定できません。
+運用方針として、再検証系 (`revalidatePath` / `revalidateTag` / ISR) は使わず、
+必要なページは `dynamic = "force-dynamic"` や `fetch(..., { cache: "no-store" })` を使います。
 
 将来的に ISR が必要になった場合は、R2 バケット構成へ戻してください。
 
@@ -39,8 +40,8 @@
 
 ```bash
 cd frontend
-npm ci
-npm run dev
+pnpm install
+pnpm dev
 ```
 
 ブラウザで [http://localhost:3000](http://localhost:3000) を開いて確認します。
@@ -49,14 +50,52 @@ npm run dev
 
 ```bash
 cd frontend
-npm run preview
-npm run deploy
+pnpm preview
+pnpm run deploy -- --env ""
 ```
 
 初回のみ Cloudflare ログインが必要です。
 
 ```bash
-npx wrangler login
+pnpm exec wrangler login
+```
+
+## ドメインと環境
+
+- frontend 本番 (`main`): `https://kc3hack2026-9.yaken.org`
+- frontend ステージング (`develop`): `https://develop.kc3hack2026-9.yaken.org`
+- frontend PR (`pull_request`): `https://test.kc3hack2026-9.yaken.org`
+- backend 本番 (`main`): `https://api.kc3hack2026-9.yaken.org`
+- backend ステージング (`develop`): `https://api.develop.kc3hack2026-9.yaken.org`
+
+Cloudflare Workers の環境は `main` が top-level、`develop` が `env.develop`、PR が `env.pr` を使います。
+
+frontend のデプロイ:
+
+```bash
+# 本番 (main)
+cd frontend
+pnpm run deploy -- --env ""
+
+# ステージング (develop)
+cd frontend
+pnpm run deploy -- --env develop
+
+# PR (pull_request)
+cd frontend
+pnpm run deploy -- --env pr
+```
+
+backend のデプロイ:
+
+```bash
+# 本番 (main)
+cd backend
+pnpm run deploy -- --env ""
+
+# ステージング (develop)
+cd backend
+pnpm run deploy -- --env develop
 ```
 
 ## 現在使っている Cloudflare バインディング
@@ -68,7 +107,7 @@ npx wrangler login
 `wrangler.jsonc` のバインディングを変更したら型定義を再生成してください。
 
 ```bash
-npm run cf-typegen
+pnpm cf-typegen
 ```
 
 ## CI 運用の注意
