@@ -5,6 +5,7 @@
   "compatibility_date": "2026-02-17",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "workers_dev": false,
+  "preview_urls": true,
   "routes": [
     {
       "pattern": "kc3hack2026-9.yaken.org",
@@ -32,6 +33,7 @@
     "develop": {
       "name": "kc3hack2026-9-front-develop",
       "workers_dev": false,
+      "preview_urls": true,
       "routes": [
         {
           "pattern": "develop.kc3hack2026-9.yaken.org",
@@ -51,6 +53,7 @@
     "pr": {
       "name": "kc3hack2026-9-front-pr",
       "workers_dev": false,
+      "preview_urls": true,
       "routes": [
         {
           "pattern": "test.kc3hack2026-9.yaken.org",

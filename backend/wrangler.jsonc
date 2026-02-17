@@ -24,6 +24,7 @@
 		"nodejs_compat"
 	],
 	"workers_dev": false,
+	"preview_urls": true,
 	"routes": [
 		{
 			"pattern": "api.kc3hack2026-9.yaken.org",
@@ -34,6 +35,7 @@
 		"develop": {
 			"name": "kc3hack2026-9-api-develop",
 			"workers_dev": false,
+			"preview_urls": true,
 			"routes": [
 				{
 					"pattern": "api.develop.kc3hack2026-9.yaken.org",
