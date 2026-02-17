@@ -1,66 +1,68 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+"use client";
+
+import {
+  Badge,
+  Box,
+  Button,
+  Container,
+  Heading,
+  HStack,
+  List,
+  Stack,
+  Text,
+} from "@chakra-ui/react";
+
+const sampleSubtasks = [
+  "要件を 3 行以内で明文化する",
+  "必要なデータと入出力を定義する",
+  "実装タスクを 30 分単位で分割する",
+  "検証手順を先に決める",
+];
 
 export default function Home() {
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>To get started, edit the page.tsx file.</h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+    <Box
+      minH="100dvh"
+      bgGradient="linear(to-b, teal.50, cyan.50)"
+      px={{ base: 4, md: 8 }}
+      py={{ base: 8, md: 12 }}
+    >
+      <Container maxW="3xl">
+        <Stack gap={6}>
+          <HStack gap={3}>
+            <Badge colorPalette="teal" size="md">
+              Chakra UI v3
+            </Badge>
+            <Badge colorPalette="cyan" size="md">
+              Hackathon
+            </Badge>
+          </HStack>
+
+          <Stack gap={3}>
+            <Heading size="2xl" lineHeight="1.15">
+              タスク細分化ツール
+            </Heading>
+            <Text fontSize="lg" color="fg.muted">
+              曖昧なタスクを、すぐに着手できる具体的なサブタスクへ分解します。
+            </Text>
+          </Stack>
+
+          <Box bg="white" borderWidth="1px" borderRadius="2xl" p={{ base: 5, md: 7 }}>
+            <Stack gap={4}>
+              <Text fontWeight="semibold">サンプル出力</Text>
+              <List.Root gap={2}>
+                {sampleSubtasks.map((step) => (
+                  <List.Item key={step}>{step}</List.Item>
+                ))}
+              </List.Root>
+              <HStack gap={3}>
+                <Button colorPalette="teal">分解を実行</Button>
+                <Button variant="outline">履歴を見る</Button>
+              </HStack>
+            </Stack>
+          </Box>
+        </Stack>
+      </Container>
+    </Box>
   );
 }
