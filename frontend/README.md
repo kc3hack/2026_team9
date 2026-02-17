@@ -60,6 +60,9 @@ pnpm run deploy -- --env ""
 pnpm exec wrangler login
 ```
 
+通常のデプロイは GitHub Actions (`.github/workflows/deploy-workers.yml`) で自動実行します。  
+上記の手動デプロイは、初回確認や緊急時の運用を想定しています。
+
 ## ドメインと環境
 
 - frontend 本番 (`main`): `https://kc3hack2026-9.yaken.org`
@@ -69,6 +72,12 @@ pnpm exec wrangler login
 - backend ステージング (`develop`): `https://api.develop.kc3hack2026-9.yaken.org`
 
 Cloudflare Workers の環境は `main` が top-level、`develop` が `env.develop`、PR が `env.pr` を使います。
+
+GitHub Actions での自動デプロイ対応:
+
+- PR (`pull_request`): frontend を `env.pr` へデプロイ (`test.kc3hack2026-9.yaken.org`)
+- `develop` への push: frontend / backend を `env.develop` へデプロイ
+- `main` への push: frontend / backend を top-level 環境へデプロイ
 
 frontend のデプロイ:
 
