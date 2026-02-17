@@ -29,6 +29,9 @@
     // see https://opennext.js.org/cloudflare/howtos/image
     "binding": "IMAGES"
   },
+  "vars": {
+    "NEXT_PUBLIC_API_BASE_URL": "https://api.kc3hack2026-9.yaken.org"
+  },
   "env": {
     "develop": {
       "name": "kc3hack2026-9-front-develop",
@@ -40,6 +43,9 @@
           "custom_domain": true
         }
       ],
+      "vars": {
+        "NEXT_PUBLIC_API_BASE_URL": "https://api.develop.kc3hack2026-9.yaken.org"
+      },
       "services": [
         {
           "binding": "WORKER_SELF_REFERENCE",
@@ -60,6 +66,9 @@
           "custom_domain": true
         }
       ],
+      "vars": {
+        "NEXT_PUBLIC_API_BASE_URL": "https://api.test.kc3hack2026-9.yaken.org"
+      },
       "services": [
         {
           "binding": "WORKER_SELF_REFERENCE",

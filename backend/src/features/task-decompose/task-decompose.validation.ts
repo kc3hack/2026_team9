@@ -14,9 +14,14 @@ export function toRequestPayload(input: unknown): TaskDecomposeRequest | null {
 		typeof candidate.context === "string" && candidate.context.trim().length > 0
 			? candidate.context.trim()
 			: undefined;
+	const userId =
+		typeof candidate.userId === "string" && candidate.userId.trim().length > 0
+			? candidate.userId.trim()
+			: undefined;
 
 	return {
 		task: candidate.task.trim(),
 		context,
+		userId,
 	};
 }

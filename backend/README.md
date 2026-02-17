@@ -15,9 +15,10 @@
 ## API エンドポイント
 
 - `GET /`: サービス情報
+- `ALL /api/auth/*`: Better Auth (Google OAuth / session)
 - `POST /tasks/decompose`: 即時分解（同期実行）
-- `POST /workflows/decompose`: Workflow 実行開始（非同期）
-- `GET /workflows/:id`: Workflow 状態確認
+- `POST /workflows/decompose`: Workflow 実行開始（非同期, 要ログイン）
+- `GET /workflows/:id`: Workflow 状態確認（要ログイン）
 
 ## 構成
 
@@ -55,7 +56,17 @@ Cloudflare Workers の環境は `main` が top-level、`develop` が `env.develo
 ```bash
 cd backend
 pnpm install
+pnpm exec wrangler d1 migrations apply kc3hack2026-9-auth --local
 pnpm dev
+```
+
+Google OAuth を使うため、以下の secrets をローカルにも設定してください。
+
+```bash
+cd backend
+pnpm exec wrangler secret put BETTER_AUTH_SECRET
+pnpm exec wrangler secret put GOOGLE_CLIENT_ID
+pnpm exec wrangler secret put GOOGLE_CLIENT_SECRET
 ```
 
 ## 手動デプロイ
@@ -103,6 +114,7 @@ pnpm run deploy --env pr
 
 - `AI` (Workers AI)
 - `MY_WORKFLOW` (`TaskDecompositionWorkflow`)
+- `AUTH_DB` (D1, Better Auth 用)
 
 `wrangler.jsonc` のバインディングを変更したら型定義を再生成してください。
 
@@ -116,3 +128,8 @@ Repository Secrets（GitHub）に以下を設定します。
 
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
+- `BETTER_AUTH_SECRET`
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+
+`wrangler.jsonc` の `AUTH_DB.database_id` はダミー値を入れています。実際の D1 database ID に置き換えてください。

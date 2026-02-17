@@ -20,6 +20,17 @@
 	"ai": {
 		"binding": "AI"
 	},
+	"d1_databases": [
+		{
+			"binding": "AUTH_DB",
+			"database_name": "kc3hack2026-9-auth",
+			"database_id": "00000000-0000-0000-0000-000000000000"
+		}
+	],
+	"vars": {
+		"FRONTEND_ORIGINS": "https://kc3hack2026-9.yaken.org",
+		"AUTH_COOKIE_DOMAIN": ".kc3hack2026-9.yaken.org"
+	},
 	"compatibility_flags": [
 		"nodejs_compat"
 	],
@@ -49,6 +60,17 @@
 					"class_name": "TaskDecompositionWorkflow"
 				}
 			],
+			"d1_databases": [
+				{
+					"binding": "AUTH_DB",
+					"database_name": "kc3hack2026-9-auth-develop",
+					"database_id": "00000000-0000-0000-0000-000000000000"
+				}
+			],
+			"vars": {
+				"FRONTEND_ORIGINS": "https://develop.kc3hack2026-9.yaken.org",
+				"AUTH_COOKIE_DOMAIN": ".kc3hack2026-9.yaken.org"
+			},
 			"ai": {
 				"binding": "AI"
 			}
@@ -70,6 +92,17 @@
 					"class_name": "TaskDecompositionWorkflow"
 				}
 			],
+			"d1_databases": [
+				{
+					"binding": "AUTH_DB",
+					"database_name": "kc3hack2026-9-auth-pr",
+					"database_id": "00000000-0000-0000-0000-000000000000"
+				}
+			],
+			"vars": {
+				"FRONTEND_ORIGINS": "https://test.kc3hack2026-9.yaken.org",
+				"AUTH_COOKIE_DOMAIN": ".kc3hack2026-9.yaken.org"
+			},
 			"ai": {
 				"binding": "AI"
 			}

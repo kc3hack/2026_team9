@@ -31,6 +31,8 @@
 ## 構成の要点
 
 - `src/app/layout.tsx`: ルートレイアウトと全体 Provider
+- `src/components/auth/auth-panel.tsx`: Google ログイン UI
+- `src/lib/auth-client.ts`: Better Auth クライアント設定
 - `src/components/ui/provider.tsx`: Chakra UI / テーマ設定
 - `next.config.ts`: 開発時の OpenNext 初期化と Next 設定
 - `open-next.config.ts`: OpenNext の Cloudflare 向け設定
@@ -73,6 +75,8 @@ pnpm exec wrangler login
 - backend PR (`pull_request`): `https://api.test.kc3hack2026-9.yaken.org`
 
 Cloudflare Workers の環境は `main` が top-level、`develop` が `env.develop`、PR が `env.pr` を使います。
+
+認証用の API URL は `NEXT_PUBLIC_API_BASE_URL` を使って backend 側 Better Auth (`/api/auth/*`) を参照します。
 
 GitHub Actions での自動デプロイ対応:
 

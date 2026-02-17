@@ -1,6 +1,7 @@
 export type TaskDecomposeRequest = {
 	task: string;
 	context?: string;
+	userId?: string;
 };
 
 export type TaskDecomposeResult = {

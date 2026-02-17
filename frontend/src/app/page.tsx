@@ -11,6 +11,7 @@ import {
   Stack,
   Text,
 } from "@chakra-ui/react";
+import { AuthPanel } from "@/components/auth/auth-panel";
 
 const sampleSubtasks = [
   "要件を 3 行以内で明文化する",
@@ -46,6 +47,8 @@ export default function Home() {
               曖昧なタスクを、すぐに着手できる具体的なサブタスクへ分解します。
             </Text>
           </Stack>
+
+          <AuthPanel />
 
           <Box
             bg="white"
