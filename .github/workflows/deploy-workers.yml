@@ -63,7 +63,7 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: pnpm run deploy -- --env "${{ steps.frontend_env.outputs.wrangler_env }}"
+        run: pnpm run deploy --env "${{ steps.frontend_env.outputs.wrangler_env }}"
 
   deploy-backend:
     name: Deploy Backend Worker
@@ -113,4 +113,4 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: pnpm run deploy -- --env "${{ steps.backend_env.outputs.wrangler_env }}"
+        run: pnpm run deploy --env "${{ steps.backend_env.outputs.wrangler_env }}"

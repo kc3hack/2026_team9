@@ -51,7 +51,7 @@ pnpm dev
 ```bash
 cd frontend
 pnpm preview
-pnpm run deploy -- --env ""
+pnpm run deploy --env ""
 ```
 
 初回のみ Cloudflare ログインが必要です。
@@ -86,15 +86,15 @@ frontend のデプロイ:
 ```bash
 # 本番 (main)
 cd frontend
-pnpm run deploy -- --env ""
+pnpm run deploy --env ""
 
 # ステージング (develop)
 cd frontend
-pnpm run deploy -- --env develop
+pnpm run deploy --env develop
 
 # PR (pull_request)
 cd frontend
-pnpm run deploy -- --env pr
+pnpm run deploy --env pr
 ```
 
 backend のデプロイ:
@@ -102,15 +102,15 @@ backend のデプロイ:
 ```bash
 # 本番 (main)
 cd backend
-pnpm run deploy -- --env ""
+pnpm run deploy --env ""
 
 # ステージング (develop)
 cd backend
-pnpm run deploy -- --env develop
+pnpm run deploy --env develop
 
 # PR (pull_request)
 cd backend
-pnpm run deploy -- --env pr
+pnpm run deploy --env pr
 ```
 
 ## 現在使っている Cloudflare バインディング

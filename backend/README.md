@@ -72,15 +72,15 @@ pnpm exec wrangler login
 ```bash
 # 本番 (main)
 cd backend
-pnpm run deploy -- --env "" --dry-run
+pnpm run deploy --env "" --dry-run
 
 # ステージング (develop)
 cd backend
-pnpm run deploy -- --env develop --dry-run
+pnpm run deploy --env develop --dry-run
 
 # PR (pull_request)
 cd backend
-pnpm run deploy -- --env pr --dry-run
+pnpm run deploy --env pr --dry-run
 ```
 
 実デプロイ:
@@ -88,15 +88,15 @@ pnpm run deploy -- --env pr --dry-run
 ```bash
 # 本番 (main)
 cd backend
-pnpm run deploy -- --env ""
+pnpm run deploy --env ""
 
 # ステージング (develop)
 cd backend
-pnpm run deploy -- --env develop
+pnpm run deploy --env develop
 
 # PR (pull_request)
 cd backend
-pnpm run deploy -- --env pr
+pnpm run deploy --env pr
 ```
 
 ## 現在使っている Cloudflare バインディング
