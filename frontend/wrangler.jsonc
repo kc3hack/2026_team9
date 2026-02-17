@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "main": ".open-next/worker.js",
-  "name": "kc3hack2026-9",
+  "name": "kc3hack2026-9-front",
   "compatibility_date": "2026-02-17",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "workers_dev": false,
@@ -20,7 +20,7 @@
       // Self-reference service binding, the service name must match the worker name
       // see https://opennext.js.org/cloudflare/caching
       "binding": "WORKER_SELF_REFERENCE",
-      "service": "kc3hack2026-9"
+      "service": "kc3hack2026-9-front"
     }
   ],
   "images": {
@@ -30,7 +30,7 @@
   },
   "env": {
     "develop": {
-      "name": "kc3hack2026-9-develop",
+      "name": "kc3hack2026-9-front-develop",
       "workers_dev": false,
       "routes": [
         {
@@ -41,7 +41,7 @@
       "services": [
         {
           "binding": "WORKER_SELF_REFERENCE",
-          "service": "kc3hack2026-9-develop"
+          "service": "kc3hack2026-9-front-develop"
         }
       ],
       "images": {
@@ -49,7 +49,7 @@
       }
     },
     "pr": {
-      "name": "kc3hack2026-9-pr",
+      "name": "kc3hack2026-9-front-pr",
       "workers_dev": false,
       "routes": [
         {
@@ -60,7 +60,7 @@
       "services": [
         {
           "binding": "WORKER_SELF_REFERENCE",
-          "service": "kc3hack2026-9-pr"
+          "service": "kc3hack2026-9-front-pr"
         }
       ],
       "images": {
