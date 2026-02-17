@@ -1,3 +1,11 @@
+---
+name: Bug Fix
+about: バグ修正用のPRテンプレート
+title: "[Bug Fix] "
+labels: bug
+assignees: ""
+---
+
 ## 種別
 - [x] Bug Fix
 - [ ] Feature
