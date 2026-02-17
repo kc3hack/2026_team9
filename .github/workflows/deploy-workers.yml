@@ -1,0 +1,109 @@
+name: Deploy Workers
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+    types:
+      - opened
+      - synchronize
+      - reopened
+  push:
+    branches:
+      - main
+      - develop
+
+jobs:
+  deploy-frontend:
+    name: Deploy Frontend Worker
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
+    runs-on: ubuntu-latest
+    concurrency:
+      group: frontend-worker-${{ github.event_name == 'pull_request' && 'pr' || github.ref_name }}
+      cancel-in-progress: true
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Select frontend environment
+        id: frontend_env
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "wrangler_env=pr" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ github.ref_name }}" == "develop" ]]; then
+            echo "wrangler_env=develop" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ github.ref_name }}" == "main" ]]; then
+            echo "wrangler_env=" >> "$GITHUB_OUTPUT"
+          else
+            echo "Unsupported branch: ${{ github.ref_name }}" >&2
+            exit 1
+          fi
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Deploy frontend
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: pnpm run deploy -- --env "${{ steps.frontend_env.outputs.wrangler_env }}"
+
+  deploy-backend:
+    name: Deploy Backend Worker
+    if: ${{ github.event_name == 'push' }}
+    runs-on: ubuntu-latest
+    concurrency:
+      group: backend-worker-${{ github.ref_name }}
+      cancel-in-progress: true
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Select backend environment
+        id: backend_env
+        shell: bash
+        run: |
+          if [[ "${{ github.ref_name }}" == "develop" ]]; then
+            echo "wrangler_env=develop" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ github.ref_name }}" == "main" ]]; then
+            echo "wrangler_env=" >> "$GITHUB_OUTPUT"
+          else
+            echo "Unsupported branch: ${{ github.ref_name }}" >&2
+            exit 1
+          fi
+
+      - name: Install backend dependencies
+        run: npm ci
+
+      - name: Deploy backend
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npm run deploy -- --env "${{ steps.backend_env.outputs.wrangler_env }}"
