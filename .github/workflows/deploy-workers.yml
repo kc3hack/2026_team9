@@ -67,10 +67,10 @@ jobs:
 
   deploy-backend:
     name: Deploy Backend Worker
-    if: ${{ github.event_name == 'push' }}
+    if: ${{ github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false) }}
     runs-on: ubuntu-latest
     concurrency:
-      group: backend-worker-${{ github.ref_name }}
+      group: backend-worker-${{ github.event_name == 'pull_request' && 'pr' || github.ref_name }}
       cancel-in-progress: true
     defaults:
       run:
@@ -95,7 +95,9 @@ jobs:
         id: backend_env
         shell: bash
         run: |
-          if [[ "${{ github.ref_name }}" == "develop" ]]; then
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "wrangler_env=pr" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ github.ref_name }}" == "develop" ]]; then
             echo "wrangler_env=develop" >> "$GITHUB_OUTPUT"
           elif [[ "${{ github.ref_name }}" == "main" ]]; then
             echo "wrangler_env=" >> "$GITHUB_OUTPUT"

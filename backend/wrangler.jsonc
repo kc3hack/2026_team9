@@ -52,6 +52,27 @@
 			"ai": {
 				"binding": "AI"
 			}
+		},
+		"pr": {
+			"name": "kc3hack2026-9-api-pr",
+			"workers_dev": false,
+			"preview_urls": true,
+			"routes": [
+				{
+					"pattern": "api.test.kc3hack2026-9.yaken.org",
+					"custom_domain": true
+				}
+			],
+			"workflows": [
+				{
+					"name": "workflow-backend-pr",
+					"binding": "MY_WORKFLOW",
+					"class_name": "TaskDecompositionWorkflow"
+				}
+			],
+			"ai": {
+				"binding": "AI"
+			}
 		}
 	}
 	/**

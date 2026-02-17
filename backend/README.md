@@ -38,6 +38,7 @@
 
 GitHub Actions での自動デプロイ対応:
 
+- PR (`pull_request`): `env.pr` へデプロイ
 - `develop` への push: `env.develop` へデプロイ
 - `main` への push: top-level 環境へデプロイ
 
@@ -45,8 +46,9 @@ GitHub Actions での自動デプロイ対応:
 
 - backend 本番 (`main`): `https://api.kc3hack2026-9.yaken.org`
 - backend ステージング (`develop`): `https://api.develop.kc3hack2026-9.yaken.org`
+- backend PR (`pull_request`): `https://api.test.kc3hack2026-9.yaken.org`
 
-Cloudflare Workers の環境は `main` が top-level、`develop` が `env.develop` を使います。
+Cloudflare Workers の環境は `main` が top-level、`develop` が `env.develop`、PR が `env.pr` を使います。
 
 ## ローカル開発
 
@@ -75,6 +77,10 @@ pnpm run deploy -- --env "" --dry-run
 # ステージング (develop)
 cd backend
 pnpm run deploy -- --env develop --dry-run
+
+# PR (pull_request)
+cd backend
+pnpm run deploy -- --env pr --dry-run
 ```
 
 実デプロイ:
@@ -87,6 +93,10 @@ pnpm run deploy -- --env ""
 # ステージング (develop)
 cd backend
 pnpm run deploy -- --env develop
+
+# PR (pull_request)
+cd backend
+pnpm run deploy -- --env pr
 ```
 
 ## 現在使っている Cloudflare バインディング

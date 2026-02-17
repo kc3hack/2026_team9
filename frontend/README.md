@@ -70,12 +70,14 @@ pnpm exec wrangler login
 - frontend PR (`pull_request`): `https://test.kc3hack2026-9.yaken.org`
 - backend 本番 (`main`): `https://api.kc3hack2026-9.yaken.org`
 - backend ステージング (`develop`): `https://api.develop.kc3hack2026-9.yaken.org`
+- backend PR (`pull_request`): `https://api.test.kc3hack2026-9.yaken.org`
 
 Cloudflare Workers の環境は `main` が top-level、`develop` が `env.develop`、PR が `env.pr` を使います。
 
 GitHub Actions での自動デプロイ対応:
 
 - PR (`pull_request`): frontend を `env.pr` へデプロイ (`test.kc3hack2026-9.yaken.org`)
+- PR (`pull_request`): backend を `env.pr` へデプロイ (`api.test.kc3hack2026-9.yaken.org`)
 - `develop` への push: frontend / backend を `env.develop` へデプロイ
 - `main` への push: frontend / backend を top-level 環境へデプロイ
 
@@ -105,6 +107,10 @@ pnpm run deploy -- --env ""
 # ステージング (develop)
 cd backend
 pnpm run deploy -- --env develop
+
+# PR (pull_request)
+cd backend
+pnpm run deploy -- --env pr
 ```
 
 ## 現在使っている Cloudflare バインディング
