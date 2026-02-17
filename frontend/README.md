@@ -1,36 +1,77 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Frontend (Next.js + OpenNext + Cloudflare Workers)
 
-## Getting Started
+このディレクトリは、Google OAuth で認証したユーザーの入力を受け取り、バックエンド Worker へ渡すフロントエンドです。  
+バックエンド側では Workers AI / Workflows / D1 を使って予定候補を生成し、Google Calendar へ登録します。
 
-First, run the development server:
+## 技術スタック
+
+- Next.js 16 (App Router)
+- React 19
+- Chakra UI v3
+- OpenNext (`@opennextjs/cloudflare`)
+- Wrangler
+
+## 現在のデプロイ方針
+
+- Cloudflare Workers へ OpenNext 経由でデプロイします。
+- このリポジトリでは **OpenNext の R2 incremental cache は使いません**。
+- incremental cache は `static-assets-incremental-cache` を利用します。
+
+この設定は、認証中心の動的フローには十分です。  
+ただし以下は使えない前提です。
+
+- ISR 的な再生成（時間ベースの再検証）
+- `revalidatePath` / `revalidateTag` を使った再検証フロー
+
+つまり、`export const revalidate`は`dynamic`や`no-store`以外は指定できません。
+
+将来的に ISR が必要になった場合は、R2 バケット構成へ戻してください。
+
+## 構成の要点
+
+- `src/app/layout.tsx`: ルートレイアウトと全体 Provider
+- `src/components/ui/provider.tsx`: Chakra UI / テーマ設定
+- `next.config.ts`: 開発時の OpenNext 初期化と Next 設定
+- `open-next.config.ts`: OpenNext の Cloudflare 向け設定
+- `wrangler.jsonc`: Worker エントリ、assets、service/images バインディング設定
+
+## ローカル開発
 
 ```bash
+cd frontend
+npm ci
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+ブラウザで [http://localhost:3000](http://localhost:3000) を開いて確認します。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## プレビューとデプロイ
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+cd frontend
+npm run preview
+npm run deploy
+```
 
-## Learn More
+初回のみ Cloudflare ログインが必要です。
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npx wrangler login
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 現在使っている Cloudflare バインディング
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `ASSETS` (`.open-next/assets`)
+- `WORKER_SELF_REFERENCE` (self-service binding)
+- `IMAGES` (Cloudflare Images 最適化)
 
-## Deploy on Vercel
+`wrangler.jsonc` のバインディングを変更したら型定義を再生成してください。
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npm run cf-typegen
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## CI 運用の注意
+
+デプロイ経路は 1 つに統一してください。  
+GitHub Actions と Cloudflare 側 Git 連携を同時に有効化すると、二重デプロイになりやすいです。
