@@ -47,7 +47,12 @@ export default function Home() {
             </Text>
           </Stack>
 
-          <Box bg="white" borderWidth="1px" borderRadius="2xl" p={{ base: 5, md: 7 }}>
+          <Box
+            bg="white"
+            borderWidth="1px"
+            borderRadius="2xl"
+            p={{ base: 5, md: 7 }}
+          >
             <Stack gap={4}>
               <Text fontWeight="semibold">サンプル出力</Text>
               <List.Root gap={2}>
