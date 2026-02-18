@@ -1,8 +1,13 @@
 "use client";
 
 import { Badge, Box, Button, HStack, Stack, Text } from "@chakra-ui/react";
-import { useState } from "react";
-import { authClient } from "@/lib/auth-client";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  getSession,
+  type SessionResponse,
+  signInWithGoogle,
+  signOut,
+} from "@/lib/auth-api";
 
 function toErrorMessage(error: unknown): string {
   if (error instanceof Error) {
@@ -12,20 +17,35 @@ function toErrorMessage(error: unknown): string {
 }
 
 export function AuthPanel() {
-  const { data: session, isPending, refetch } = authClient.useSession();
+  const [session, setSession] = useState<SessionResponse>(null);
+  const [isPending, setIsPending] = useState(true);
   const [actionError, setActionError] = useState<string | null>(null);
   const [isActionRunning, setIsActionRunning] = useState(false);
 
-  const signedInUser = session?.user;
+  const signedInUser = useMemo(() => session?.user ?? null, [session]);
+
+  const refreshSession = useCallback(async () => {
+    setIsPending(true);
+    try {
+      const nextSession = await getSession();
+      setSession(nextSession);
+    } catch (error) {
+      setActionError(toErrorMessage(error));
+      setSession(null);
+    } finally {
+      setIsPending(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshSession();
+  }, [refreshSession]);
 
   const handleSignIn = async () => {
     setActionError(null);
     setIsActionRunning(true);
     try {
-      await authClient.signIn.social({
-        provider: "google",
-        callbackURL: window.location.href,
-      });
+      await signInWithGoogle(window.location.href);
     } catch (error) {
       setActionError(toErrorMessage(error));
     } finally {
@@ -37,8 +57,8 @@ export function AuthPanel() {
     setActionError(null);
     setIsActionRunning(true);
     try {
-      await authClient.signOut();
-      await refetch();
+      await signOut();
+      await refreshSession();
     } catch (error) {
       setActionError(toErrorMessage(error));
     } finally {

@@ -32,7 +32,7 @@
 
 - `src/app/layout.tsx`: ルートレイアウトと全体 Provider
 - `src/components/auth/auth-panel.tsx`: Google ログイン UI
-- `src/lib/auth-client.ts`: Better Auth クライアント設定
+- `src/lib/auth-api.ts`: backend Better Auth API 呼び出し
 - `src/components/ui/provider.tsx`: Chakra UI / テーマ設定
 - `next.config.ts`: 開発時の OpenNext 初期化と Next 設定
 - `open-next.config.ts`: OpenNext の Cloudflare 向け設定
