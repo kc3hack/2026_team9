@@ -1,3 +1,11 @@
+---
+name: Feature
+about: 機能追加・改善用のPRテンプレート
+title: "[Feature] "
+labels: enhancement
+assignees: ""
+---
+
 ## 種別
 - [ ] Bug Fix
 - [x] Feature
