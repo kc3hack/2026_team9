@@ -4,7 +4,7 @@
  */
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "backend",
+	"name": "kc3hack2026-9-api",
 	"main": "src/index.ts",
 	"compatibility_date": "2026-02-12",
 	"observability": {
@@ -22,7 +22,59 @@
 	},
 	"compatibility_flags": [
 		"nodejs_compat"
-	]
+	],
+	"workers_dev": false,
+	"preview_urls": true,
+	"routes": [
+		{
+			"pattern": "api.kc3hack2026-9.yaken.org",
+			"custom_domain": true
+		}
+	],
+	"env": {
+		"develop": {
+			"name": "kc3hack2026-9-api-develop",
+			"workers_dev": false,
+			"preview_urls": true,
+			"routes": [
+				{
+					"pattern": "api.develop.kc3hack2026-9.yaken.org",
+					"custom_domain": true
+				}
+			],
+			"workflows": [
+				{
+					"name": "workflow-backend-develop",
+					"binding": "MY_WORKFLOW",
+					"class_name": "TaskDecompositionWorkflow"
+				}
+			],
+			"ai": {
+				"binding": "AI"
+			}
+		},
+		"pr": {
+			"name": "kc3hack2026-9-api-pr",
+			"workers_dev": false,
+			"preview_urls": true,
+			"routes": [
+				{
+					"pattern": "api.test.kc3hack2026-9.yaken.org",
+					"custom_domain": true
+				}
+			],
+			"workflows": [
+				{
+					"name": "workflow-backend-pr",
+					"binding": "MY_WORKFLOW",
+					"class_name": "TaskDecompositionWorkflow"
+				}
+			],
+			"ai": {
+				"binding": "AI"
+			}
+		}
+	}
 	/**
 	 * Smart Placement
 	 * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
