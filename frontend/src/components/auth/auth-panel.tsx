@@ -12,17 +12,40 @@ import {
 import NextLink from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  AuthApiError,
   getSession,
   type SessionResponse,
   signInWithGoogle,
   signOut,
 } from "@/lib/auth-api";
 
-function toErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
+type AuthAction = "session" | "signIn" | "signOut";
+
+function fallbackMessage(action: AuthAction): string {
+  if (action === "session") {
+    return "セッション状態を確認できませんでした。時間をおいて再試行してください。";
   }
-  return "認証処理に失敗しました。";
+  if (action === "signIn") {
+    return "ログイン処理を開始できませんでした。時間をおいて再試行してください。";
+  }
+  return "ログアウトに失敗しました。時間をおいて再試行してください。";
+}
+
+function toErrorMessage(error: unknown, action: AuthAction): string {
+  if (error instanceof TypeError) {
+    return "ネットワークに接続できませんでした。通信環境を確認してください。";
+  }
+
+  if (error instanceof AuthApiError) {
+    if (error.status >= 500) {
+      return "サーバーエラーが発生しました。時間をおいて再試行してください。";
+    }
+    if (error.status >= 400) {
+      return fallbackMessage(action);
+    }
+  }
+
+  return fallbackMessage(action);
 }
 
 export function AuthPanel() {
@@ -38,8 +61,9 @@ export function AuthPanel() {
     try {
       const nextSession = await getSession();
       setSession(nextSession);
+      setActionError(null);
     } catch (error) {
-      setActionError(toErrorMessage(error));
+      setActionError(toErrorMessage(error, "session"));
       setSession(null);
     } finally {
       setIsPending(false);
@@ -56,7 +80,7 @@ export function AuthPanel() {
     try {
       await signInWithGoogle(window.location.href);
     } catch (error) {
-      setActionError(toErrorMessage(error));
+      setActionError(toErrorMessage(error, "signIn"));
     } finally {
       setIsActionRunning(false);
     }
@@ -69,7 +93,7 @@ export function AuthPanel() {
       await signOut();
       await refreshSession();
     } catch (error) {
-      setActionError(toErrorMessage(error));
+      setActionError(toErrorMessage(error, "signOut"));
     } finally {
       setIsActionRunning(false);
     }

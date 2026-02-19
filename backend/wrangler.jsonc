@@ -70,7 +70,7 @@
 			],
 			"vars": {
 				"FRONTEND_ORIGINS": "https://develop.kc3hack2026-9.yaken.org",
-				"AUTH_COOKIE_DOMAIN": ".kc3hack2026-9.yaken.org",
+				"AUTH_COOKIE_DOMAIN": ".develop.kc3hack2026-9.yaken.org",
 				"BETTER_AUTH_URL": "https://api.develop.kc3hack2026-9.yaken.org"
 			},
 			"ai": {
@@ -103,7 +103,7 @@
 			],
 			"vars": {
 				"FRONTEND_ORIGINS": "https://test.kc3hack2026-9.yaken.org",
-				"AUTH_COOKIE_DOMAIN": ".kc3hack2026-9.yaken.org",
+				"AUTH_COOKIE_DOMAIN": ".test.kc3hack2026-9.yaken.org",
 				"BETTER_AUTH_URL": "https://api.test.kc3hack2026-9.yaken.org"
 			},
 			"ai": {

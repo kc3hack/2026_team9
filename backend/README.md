@@ -213,12 +213,26 @@ pnpm cf-typegen
 
 ## Actions 実行時に必要な Secrets
 
-Repository Secrets（GitHub）に以下を設定します。
+GitHub Actions で必須なのは、Cloudflare へデプロイするための認証情報のみです。
+
+### GitHub Repository Secrets（Actions 用）
 
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
+
+### Cloudflare Workers Secrets（ランタイム用）
+
+以下は GitHub Secrets ではなく、Cloudflare Workers 側の secret として設定します。
+
 - `BETTER_AUTH_SECRET`
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
+
+反映コマンド:
+
+```bash
+cd backend
+pnpm run secrets:put:all
+```
 
 `wrangler.jsonc` の `AUTH_DB.database_id` はダミー値を入れています。実際の D1 database ID に置き換えてください。

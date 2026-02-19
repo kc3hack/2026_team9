@@ -91,6 +91,7 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # NEXT_PUBLIC_* values are embedded at OpenNext/Next.js build time.
           NEXT_PUBLIC_API_BASE_URL: ${{ steps.frontend_env.outputs.api_base_url }}
           WRANGLER_OUTPUT_FILE_PATH: /tmp/frontend-wrangler-output.jsonl
         shell: bash

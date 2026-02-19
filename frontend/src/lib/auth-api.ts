@@ -15,21 +15,34 @@ export type SessionResponse = {
 
 const defaultLocalApiBaseUrl = "http://localhost:8787";
 
+export class AuthApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "AuthApiError";
+    this.status = status;
+  }
+}
+
+function isLocalHost(hostname: string): boolean {
+  return (
+    hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1"
+  );
+}
+
 function inferApiBaseUrlFromRuntime(): string | null {
   if (typeof window === "undefined") {
     return null;
   }
 
-  const { protocol, hostname } = window.location;
-  if (
-    hostname === "localhost" ||
-    hostname === "127.0.0.1" ||
-    hostname === "::1"
-  ) {
+  const { hostname } = window.location;
+  if (isLocalHost(hostname)) {
     return defaultLocalApiBaseUrl;
   }
 
-  return `${protocol}//api.${hostname}`;
+  // Non-local environments should use NEXT_PUBLIC_API_BASE_URL.
+  return null;
 }
 
 function resolveApiBaseUrl(): string {
@@ -46,14 +59,41 @@ function authEndpoint(path: string): string {
   return `${resolveApiBaseUrl()}/api/auth${path}`;
 }
 
+async function toApiError(
+  response: Response,
+  fallbackMessage: string,
+): Promise<AuthApiError> {
+  const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
+  if (!contentType.includes("application/json")) {
+    return new AuthApiError(fallbackMessage, response.status);
+  }
+
+  const payload = (await response.json().catch(() => null)) as {
+    message?: unknown;
+  } | null;
+  const message =
+    payload && typeof payload.message === "string" && payload.message.trim()
+      ? payload.message
+      : fallbackMessage;
+
+  return new AuthApiError(message, response.status);
+}
+
 export async function getSession(): Promise<SessionResponse> {
   const response = await fetch(authEndpoint("/get-session"), {
     method: "GET",
     credentials: "include",
   });
 
+  if (response.status === 401) {
+    return null;
+  }
+
   if (!response.ok) {
-    throw new Error(`Failed to load session (${response.status}).`);
+    throw await toApiError(
+      response,
+      `Failed to load session (${response.status}).`,
+    );
   }
 
   return (await response.json()) as SessionResponse;
@@ -74,7 +114,10 @@ export async function signInWithGoogle(callbackUrl: string): Promise<void> {
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to start Google sign-in (${response.status}).`);
+    throw await toApiError(
+      response,
+      `Failed to start Google sign-in (${response.status}).`,
+    );
   }
 
   const data = (await response.json()) as { url?: string };
@@ -96,6 +139,9 @@ export async function signOut(): Promise<void> {
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to sign out (${response.status}).`);
+    throw await toApiError(
+      response,
+      `Failed to sign out (${response.status}).`,
+    );
   }
 }
