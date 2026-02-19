@@ -89,6 +89,10 @@ export async function signOut(): Promise<void> {
   const response = await fetch(authEndpoint("/sign-out"), {
     method: "POST",
     credentials: "include",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({}),
   });
 
   if (!response.ok) {
