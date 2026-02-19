@@ -24,7 +24,7 @@ jobs:
     if: ${{ github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false) }}
     runs-on: ubuntu-latest
     outputs:
-      preview_url: ${{ steps.frontend_preview.outputs.value }}
+      preview_url: ${{ steps.frontend_version.outputs.preview_url }}
       public_url: ${{ steps.frontend_env.outputs.public_url }}
     concurrency:
       group: frontend-worker-${{ github.event_name == 'pull_request' && 'pr' || github.ref_name }}
@@ -86,20 +86,64 @@ jobs:
             exit 1
           fi
 
-      - name: Deploy frontend
-        id: deploy_frontend
+      - name: Upload frontend version
+        id: frontend_upload
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           NEXT_PUBLIC_API_BASE_URL: ${{ steps.frontend_env.outputs.api_base_url }}
+          WRANGLER_OUTPUT_FILE_PATH: /tmp/frontend-wrangler-output.jsonl
         shell: bash
         run: |
           set -euo pipefail
-          pnpm run deploy --env "${{ steps.frontend_env.outputs.wrangler_env }}" 2>&1 | tee /tmp/frontend-deploy.log
+          : > "${WRANGLER_OUTPUT_FILE_PATH}"
 
-      - name: Extract frontend preview URL
-        id: frontend_preview
-        if: ${{ github.event_name == 'pull_request' }}
+          pnpm exec opennextjs-cloudflare build
+
+          if [[ -n "${{ steps.frontend_env.outputs.wrangler_env }}" ]]; then
+            pnpm exec opennextjs-cloudflare upload --env "${{ steps.frontend_env.outputs.wrangler_env }}" 2>&1 | tee /tmp/frontend-upload.log
+          else
+            pnpm exec opennextjs-cloudflare upload 2>&1 | tee /tmp/frontend-upload.log
+          fi
+
+      - name: Read frontend version metadata
+        id: frontend_version
+        env:
+          WRANGLER_OUTPUT_FILE_PATH: /tmp/frontend-wrangler-output.jsonl
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require("node:fs");
+
+          const outputPath = process.env.WRANGLER_OUTPUT_FILE_PATH;
+          const githubOutput = process.env.GITHUB_OUTPUT;
+          let versionId = "";
+          let previewUrl = "";
+
+          if (outputPath && fs.existsSync(outputPath)) {
+            const lines = fs.readFileSync(outputPath, "utf8").split("\n").filter(Boolean);
+            for (const line of lines) {
+              try {
+                const payload = JSON.parse(line);
+                if (payload?.type === "version-upload") {
+                  versionId = payload.version_id || versionId;
+                  previewUrl = payload.preview_url || previewUrl;
+                }
+              } catch {}
+            }
+          }
+
+          if (!versionId) {
+            process.stderr.write(`Failed to read version_id from ${outputPath}\n`);
+            process.exit(1);
+          }
+
+          fs.appendFileSync(githubOutput, `version_id=${versionId}\n`);
+          fs.appendFileSync(githubOutput, `preview_url=${previewUrl}\n`);
+          NODE
+
+      - name: Deploy uploaded frontend version
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -107,45 +151,32 @@ jobs:
         run: |
           set -euo pipefail
 
-          version_id=$(grep -Eo 'Current Version ID: [0-9a-f-]+' /tmp/frontend-deploy.log | awk '{print $4}' | tail -n1 || true)
-          preview_url=""
-
-          if pnpm exec wrangler versions list --env "${{ steps.frontend_env.outputs.wrangler_env }}" --json > /tmp/frontend-versions.json; then
-            preview_url=$(
-              VERSION_ID="${version_id}" node -e '
-                const fs = require("node:fs");
-                const input = fs.readFileSync(0, "utf8").trim();
-                if (!input) process.exit(0);
-                const payload = JSON.parse(input);
-                const versions = Array.isArray(payload)
-                  ? payload
-                  : Array.isArray(payload.items)
-                    ? payload.items
-                    : [];
-                const targetVersionId = process.env.VERSION_ID?.trim();
-                const byId =
-                  targetVersionId &&
-                  versions.find((v) => (v?.id ?? v?.version_id ?? "") === targetVersionId);
-                const firstWithPreview = versions.find(
-                  (v) => typeof v?.preview_url === "string" && v.preview_url.length > 0
-                );
-                process.stdout.write(byId?.preview_url || firstWithPreview?.preview_url || "");
-              ' < /tmp/frontend-versions.json
-            )
+          if [[ -n "${{ steps.frontend_env.outputs.wrangler_env }}" ]]; then
+            pnpm exec wrangler versions deploy "${{ steps.frontend_version.outputs.version_id }}@100" --env "${{ steps.frontend_env.outputs.wrangler_env }}" --yes
+          else
+            pnpm exec wrangler versions deploy "${{ steps.frontend_version.outputs.version_id }}@100" --yes
           fi
 
-          if [[ -z "${preview_url}" ]]; then
-            preview_url=$(grep -Eo 'https://[^ ]+\.workers\.dev[^ ]*' /tmp/frontend-deploy.log | head -n1 || true)
-          fi
+      - name: Apply frontend triggers
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
 
-          echo "value=${preview_url}" >> "$GITHUB_OUTPUT"
+          if [[ -n "${{ steps.frontend_env.outputs.wrangler_env }}" ]]; then
+            pnpm exec wrangler triggers deploy --env "${{ steps.frontend_env.outputs.wrangler_env }}"
+          else
+            pnpm exec wrangler triggers deploy
+          fi
 
   deploy-backend:
     name: Deploy Backend Worker
     if: ${{ github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false) }}
     runs-on: ubuntu-latest
     outputs:
-      preview_url: ${{ steps.backend_preview.outputs.value }}
+      preview_url: ${{ steps.backend_version.outputs.preview_url }}
       public_url: ${{ steps.backend_env.outputs.public_url }}
     concurrency:
       group: backend-worker-${{ github.event_name == 'pull_request' && 'pr' || github.ref_name }}
@@ -204,19 +235,75 @@ jobs:
             exit 1
           fi
 
-      - name: Deploy backend
-        id: deploy_backend
+      - name: Upload backend version
+        id: backend_upload
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WRANGLER_OUTPUT_FILE_PATH: /tmp/backend-wrangler-output.jsonl
+        shell: bash
+        run: |
+          set -euo pipefail
+          : > "${WRANGLER_OUTPUT_FILE_PATH}"
+
+          if [[ -n "${{ steps.backend_env.outputs.wrangler_env }}" ]]; then
+            pnpm exec wrangler versions upload --env "${{ steps.backend_env.outputs.wrangler_env }}" 2>&1 | tee /tmp/backend-upload.log
+          else
+            pnpm exec wrangler versions upload 2>&1 | tee /tmp/backend-upload.log
+          fi
+
+      - name: Read backend version metadata
+        id: backend_version
+        env:
+          WRANGLER_OUTPUT_FILE_PATH: /tmp/backend-wrangler-output.jsonl
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require("node:fs");
+
+          const outputPath = process.env.WRANGLER_OUTPUT_FILE_PATH;
+          const githubOutput = process.env.GITHUB_OUTPUT;
+          let versionId = "";
+          let previewUrl = "";
+
+          if (outputPath && fs.existsSync(outputPath)) {
+            const lines = fs.readFileSync(outputPath, "utf8").split("\n").filter(Boolean);
+            for (const line of lines) {
+              try {
+                const payload = JSON.parse(line);
+                if (payload?.type === "version-upload") {
+                  versionId = payload.version_id || versionId;
+                  previewUrl = payload.preview_url || previewUrl;
+                }
+              } catch {}
+            }
+          }
+
+          if (!versionId) {
+            process.stderr.write(`Failed to read version_id from ${outputPath}\n`);
+            process.exit(1);
+          }
+
+          fs.appendFileSync(githubOutput, `version_id=${versionId}\n`);
+          fs.appendFileSync(githubOutput, `preview_url=${previewUrl}\n`);
+          NODE
+
+      - name: Deploy uploaded backend version
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         shell: bash
         run: |
           set -euo pipefail
-          pnpm run deploy --env "${{ steps.backend_env.outputs.wrangler_env }}" 2>&1 | tee /tmp/backend-deploy.log
 
-      - name: Extract backend preview URL
-        id: backend_preview
-        if: ${{ github.event_name == 'pull_request' }}
+          if [[ -n "${{ steps.backend_env.outputs.wrangler_env }}" ]]; then
+            pnpm exec wrangler versions deploy "${{ steps.backend_version.outputs.version_id }}@100" --env "${{ steps.backend_env.outputs.wrangler_env }}" --yes
+          else
+            pnpm exec wrangler versions deploy "${{ steps.backend_version.outputs.version_id }}@100" --yes
+          fi
+
+      - name: Apply backend triggers
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -224,38 +311,11 @@ jobs:
         run: |
           set -euo pipefail
 
-          version_id=$(grep -Eo 'Current Version ID: [0-9a-f-]+' /tmp/backend-deploy.log | awk '{print $4}' | tail -n1 || true)
-          preview_url=""
-
-          if pnpm exec wrangler versions list --env "${{ steps.backend_env.outputs.wrangler_env }}" --json > /tmp/backend-versions.json; then
-            preview_url=$(
-              VERSION_ID="${version_id}" node -e '
-                const fs = require("node:fs");
-                const input = fs.readFileSync(0, "utf8").trim();
-                if (!input) process.exit(0);
-                const payload = JSON.parse(input);
-                const versions = Array.isArray(payload)
-                  ? payload
-                  : Array.isArray(payload.items)
-                    ? payload.items
-                    : [];
-                const targetVersionId = process.env.VERSION_ID?.trim();
-                const byId =
-                  targetVersionId &&
-                  versions.find((v) => (v?.id ?? v?.version_id ?? "") === targetVersionId);
-                const firstWithPreview = versions.find(
-                  (v) => typeof v?.preview_url === "string" && v.preview_url.length > 0
-                );
-                process.stdout.write(byId?.preview_url || firstWithPreview?.preview_url || "");
-              ' < /tmp/backend-versions.json
-            )
+          if [[ -n "${{ steps.backend_env.outputs.wrangler_env }}" ]]; then
+            pnpm exec wrangler triggers deploy --env "${{ steps.backend_env.outputs.wrangler_env }}"
+          else
+            pnpm exec wrangler triggers deploy
           fi
-
-          if [[ -z "${preview_url}" ]]; then
-            preview_url=$(grep -Eo 'https://[^ ]+\.workers\.dev[^ ]*' /tmp/backend-deploy.log | head -n1 || true)
-          fi
-
-          echo "value=${preview_url}" >> "$GITHUB_OUTPUT"
 
   comment-preview:
     name: Comment Preview URLs
@@ -275,8 +335,8 @@ jobs:
         with:
           script: |
             const marker = "<!-- preview-urls -->";
-            const frontendPreview = process.env.FRONTEND_PREVIEW?.trim() || "(not found in deploy logs)";
-            const backendPreview = process.env.BACKEND_PREVIEW?.trim() || "(not found in deploy logs)";
+            const frontendPreview = process.env.FRONTEND_PREVIEW?.trim() || "(not available)";
+            const backendPreview = process.env.BACKEND_PREVIEW?.trim() || "(not available)";
             const frontendPublic = process.env.FRONTEND_PUBLIC?.trim() || "(not set)";
             const backendPublic = process.env.BACKEND_PUBLIC?.trim() || "(not set)";
 
