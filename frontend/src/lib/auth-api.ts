@@ -13,11 +13,33 @@ export type SessionResponse = {
   };
 } | null;
 
-const defaultApiBaseUrl = "http://localhost:8787";
+const defaultLocalApiBaseUrl = "http://localhost:8787";
+
+function inferApiBaseUrlFromRuntime(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const { protocol, hostname } = window.location;
+  if (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "::1"
+  ) {
+    return defaultLocalApiBaseUrl;
+  }
+
+  return `${protocol}//api.${hostname}`;
+}
 
 function resolveApiBaseUrl(): string {
   const value = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
-  return value && value.length > 0 ? value : defaultApiBaseUrl;
+  if (value && value.length > 0) {
+    return value;
+  }
+
+  const inferred = inferApiBaseUrlFromRuntime();
+  return inferred && inferred.length > 0 ? inferred : defaultLocalApiBaseUrl;
 }
 
 function authEndpoint(path: string): string {

@@ -14,11 +14,18 @@ on:
       - main
       - develop
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   deploy-frontend:
     name: Deploy Frontend Worker
     if: ${{ github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false) }}
     runs-on: ubuntu-latest
+    outputs:
+      preview_url: ${{ steps.frontend_preview.outputs.value }}
+      public_url: ${{ steps.frontend_env.outputs.public_url }}
     concurrency:
       group: frontend-worker-${{ github.event_name == 'pull_request' && 'pr' || github.ref_name }}
       cancel-in-progress: true
@@ -47,10 +54,16 @@ jobs:
         run: |
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             echo "wrangler_env=pr" >> "$GITHUB_OUTPUT"
+            echo "api_base_url=https://api.test.kc3hack2026-9.yaken.org" >> "$GITHUB_OUTPUT"
+            echo "public_url=https://test.kc3hack2026-9.yaken.org" >> "$GITHUB_OUTPUT"
           elif [[ "${{ github.ref_name }}" == "develop" ]]; then
             echo "wrangler_env=develop" >> "$GITHUB_OUTPUT"
+            echo "api_base_url=https://api.develop.kc3hack2026-9.yaken.org" >> "$GITHUB_OUTPUT"
+            echo "public_url=https://develop.kc3hack2026-9.yaken.org" >> "$GITHUB_OUTPUT"
           elif [[ "${{ github.ref_name }}" == "main" ]]; then
             echo "wrangler_env=" >> "$GITHUB_OUTPUT"
+            echo "api_base_url=https://api.kc3hack2026-9.yaken.org" >> "$GITHUB_OUTPUT"
+            echo "public_url=https://kc3hack2026-9.yaken.org" >> "$GITHUB_OUTPUT"
           else
             echo "Unsupported branch: ${{ github.ref_name }}" >&2
             exit 1
@@ -74,15 +87,31 @@ jobs:
           fi
 
       - name: Deploy frontend
+        id: deploy_frontend
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: pnpm run deploy --env "${{ steps.frontend_env.outputs.wrangler_env }}"
+          NEXT_PUBLIC_API_BASE_URL: ${{ steps.frontend_env.outputs.api_base_url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm run deploy --env "${{ steps.frontend_env.outputs.wrangler_env }}" 2>&1 | tee /tmp/frontend-deploy.log
+
+      - name: Extract frontend preview URL
+        id: frontend_preview
+        if: ${{ github.event_name == 'pull_request' }}
+        shell: bash
+        run: |
+          preview_url=$(grep -Eo 'https://[^ ]+\.workers\.dev[^ ]*' /tmp/frontend-deploy.log | head -n1 || true)
+          echo "value=${preview_url}" >> "$GITHUB_OUTPUT"
 
   deploy-backend:
     name: Deploy Backend Worker
     if: ${{ github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false) }}
     runs-on: ubuntu-latest
+    outputs:
+      preview_url: ${{ steps.backend_preview.outputs.value }}
+      public_url: ${{ steps.backend_env.outputs.public_url }}
     concurrency:
       group: backend-worker-${{ github.event_name == 'pull_request' && 'pr' || github.ref_name }}
       cancel-in-progress: true
@@ -111,10 +140,13 @@ jobs:
         run: |
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             echo "wrangler_env=pr" >> "$GITHUB_OUTPUT"
+            echo "public_url=https://api.test.kc3hack2026-9.yaken.org" >> "$GITHUB_OUTPUT"
           elif [[ "${{ github.ref_name }}" == "develop" ]]; then
             echo "wrangler_env=develop" >> "$GITHUB_OUTPUT"
+            echo "public_url=https://api.develop.kc3hack2026-9.yaken.org" >> "$GITHUB_OUTPUT"
           elif [[ "${{ github.ref_name }}" == "main" ]]; then
             echo "wrangler_env=" >> "$GITHUB_OUTPUT"
+            echo "public_url=https://api.kc3hack2026-9.yaken.org" >> "$GITHUB_OUTPUT"
           else
             echo "Unsupported branch: ${{ github.ref_name }}" >&2
             exit 1
@@ -138,7 +170,75 @@ jobs:
           fi
 
       - name: Deploy backend
+        id: deploy_backend
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: pnpm run deploy --env "${{ steps.backend_env.outputs.wrangler_env }}"
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm run deploy --env "${{ steps.backend_env.outputs.wrangler_env }}" 2>&1 | tee /tmp/backend-deploy.log
+
+      - name: Extract backend preview URL
+        id: backend_preview
+        if: ${{ github.event_name == 'pull_request' }}
+        shell: bash
+        run: |
+          preview_url=$(grep -Eo 'https://[^ ]+\.workers\.dev[^ ]*' /tmp/backend-deploy.log | head -n1 || true)
+          echo "value=${preview_url}" >> "$GITHUB_OUTPUT"
+
+  comment-preview:
+    name: Comment Preview URLs
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false }}
+    runs-on: ubuntu-latest
+    needs:
+      - deploy-frontend
+      - deploy-backend
+    steps:
+      - name: Upsert preview URL comment
+        uses: actions/github-script@v7
+        env:
+          FRONTEND_PREVIEW: ${{ needs.deploy-frontend.outputs.preview_url }}
+          BACKEND_PREVIEW: ${{ needs.deploy-backend.outputs.preview_url }}
+          FRONTEND_PUBLIC: ${{ needs.deploy-frontend.outputs.public_url }}
+          BACKEND_PUBLIC: ${{ needs.deploy-backend.outputs.public_url }}
+        with:
+          script: |
+            const marker = "<!-- preview-urls -->";
+            const frontendPreview = process.env.FRONTEND_PREVIEW?.trim() || "(not found in deploy logs)";
+            const backendPreview = process.env.BACKEND_PREVIEW?.trim() || "(not found in deploy logs)";
+            const frontendPublic = process.env.FRONTEND_PUBLIC?.trim() || "(not set)";
+            const backendPublic = process.env.BACKEND_PUBLIC?.trim() || "(not set)";
+
+            const body = `${marker}
+            ## Preview URLs
+            - Frontend (workers.dev): ${frontendPreview}
+            - Backend (workers.dev): ${backendPreview}
+            - Frontend (custom domain): ${frontendPublic}
+            - Backend (custom domain): ${backendPublic}`;
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number,
+              per_page: 100,
+            });
+            const existing = comments.find((c) => c.user?.type === "Bot" && c.body?.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number,
+                body,
+              });
+            }
