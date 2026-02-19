@@ -1,6 +1,15 @@
 "use client";
 
-import { Badge, Box, Button, HStack, Stack, Text } from "@chakra-ui/react";
+import {
+  Badge,
+  Box,
+  Button,
+  HStack,
+  Link,
+  Stack,
+  Text,
+} from "@chakra-ui/react";
+import NextLink from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   getSession,
@@ -121,6 +130,18 @@ export function AuthPanel() {
             {actionError}
           </Text>
         ) : null}
+
+        <Text fontSize="xs" color="fg.muted">
+          Google でログインすると、
+          <Link asChild colorPalette="teal" textDecoration="underline">
+            <NextLink href="/terms">利用規約</NextLink>
+          </Link>
+          と
+          <Link asChild colorPalette="teal" textDecoration="underline">
+            <NextLink href="/privacy">プライバシーポリシー</NextLink>
+          </Link>
+          に同意したものとみなします。
+        </Text>
       </Stack>
     </Box>
   );
