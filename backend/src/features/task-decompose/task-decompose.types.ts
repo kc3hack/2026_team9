@@ -1,10 +1,9 @@
-export type TaskDecomposeRequest = {
-	task: string;
-	context?: string;
-};
+export type {
+	TaskDecomposeRequest,
+	TaskDecomposeResult,
+} from "../../../../shared/task-decompose";
 
-export type TaskDecomposeResult = {
-	goal: string;
-	subtasks: string[];
-	assumptions: string[];
-};
+export {
+	TaskDecomposeRequestSchema,
+	TaskDecomposeResultSchema,
+} from "../../../../shared/task-decompose";
