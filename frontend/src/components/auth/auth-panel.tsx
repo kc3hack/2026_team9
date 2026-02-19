@@ -71,6 +71,7 @@ export function AuthPanel() {
   }, []);
 
   useEffect(() => {
+    // refreshSession is stable (useCallback with empty deps), so this runs on mount.
     void refreshSession();
   }, [refreshSession]);
 

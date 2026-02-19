@@ -47,6 +47,8 @@ export function isAllowedOrigin(origin: string, allowedOrigins: Set<string>): bo
 
 	try {
 		const url = new URL(origin);
+		// Allow loopback origins with arbitrary ports for local development tools.
+		// This fallback is limited to localhost/127.0.0.1/::1 only.
 		return (
 			(url.protocol === "http:" || url.protocol === "https:") &&
 			LOCAL_DEV_HOSTS.has(url.hostname)

@@ -40,10 +40,6 @@ export function createApp(): App {
 		}
 
 		await next();
-
-		if (allowedOrigin) {
-			applyCorsHeaders(c, allowedOrigin);
-		}
 	});
 
 	registerRootRoutes(app);

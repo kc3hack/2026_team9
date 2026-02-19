@@ -68,7 +68,7 @@ pnpm dev
 - `BETTER_AUTH_SECRET`
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
-- `BETTER_AUTH_URL` (`http://localhost:8787`)
+- `BETTER_AUTH_URL` (`http://localhost:8787` など、Wrangler dev サーバーのポートと一致させる。既定の dev スクリプトは `--port 8787`)
 
 Cloudflare 環境 (`main/develop/pr`) へ反映する secret ファイルは `backend/.secrets/*.env` を使います。  
 テンプレートは以下です。
@@ -235,4 +235,5 @@ cd backend
 pnpm run secrets:put:all
 ```
 
-`wrangler.jsonc` の `AUTH_DB.database_id` はダミー値を入れています。実際の D1 database ID に置き換えてください。
+`wrangler.jsonc` の `AUTH_DB.database_id` はこのリポジトリ運用中の環境 ID です。  
+別アカウントや別プロジェクトで使う場合は、各環境の D1 database ID に置き換えてください。

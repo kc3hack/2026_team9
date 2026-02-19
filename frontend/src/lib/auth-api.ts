@@ -52,7 +52,17 @@ function resolveApiBaseUrl(): string {
   }
 
   const inferred = inferApiBaseUrlFromRuntime();
-  return inferred && inferred.length > 0 ? inferred : defaultLocalApiBaseUrl;
+  if (inferred && inferred.length > 0) {
+    return inferred;
+  }
+
+  if (typeof window !== "undefined" && !isLocalHost(window.location.hostname)) {
+    throw new Error(
+      "NEXT_PUBLIC_API_BASE_URL is required for non-local environments.",
+    );
+  }
+
+  return defaultLocalApiBaseUrl;
 }
 
 function authEndpoint(path: string): string {
@@ -135,6 +145,7 @@ export async function signOut(): Promise<void> {
     headers: {
       "content-type": "application/json",
     },
+    // Better Auth expects application/json for this endpoint.
     body: JSON.stringify({}),
   });
 
