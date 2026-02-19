@@ -102,7 +102,39 @@ jobs:
         if: ${{ github.event_name == 'pull_request' }}
         shell: bash
         run: |
-          preview_url=$(grep -Eo 'https://[^ ]+\.workers\.dev[^ ]*' /tmp/frontend-deploy.log | head -n1 || true)
+          set -euo pipefail
+
+          version_id=$(grep -Eo 'Current Version ID: [0-9a-f-]+' /tmp/frontend-deploy.log | awk '{print $4}' | tail -n1 || true)
+          preview_url=""
+
+          if pnpm exec wrangler versions list --env "${{ steps.frontend_env.outputs.wrangler_env }}" --json > /tmp/frontend-versions.json; then
+            preview_url=$(
+              VERSION_ID="${version_id}" node -e '
+                const fs = require("node:fs");
+                const input = fs.readFileSync(0, "utf8").trim();
+                if (!input) process.exit(0);
+                const payload = JSON.parse(input);
+                const versions = Array.isArray(payload)
+                  ? payload
+                  : Array.isArray(payload.items)
+                    ? payload.items
+                    : [];
+                const targetVersionId = process.env.VERSION_ID?.trim();
+                const byId =
+                  targetVersionId &&
+                  versions.find((v) => (v?.id ?? v?.version_id ?? "") === targetVersionId);
+                const firstWithPreview = versions.find(
+                  (v) => typeof v?.preview_url === "string" && v.preview_url.length > 0
+                );
+                process.stdout.write(byId?.preview_url || firstWithPreview?.preview_url || "");
+              ' < /tmp/frontend-versions.json
+            )
+          fi
+
+          if [[ -z "${preview_url}" ]]; then
+            preview_url=$(grep -Eo 'https://[^ ]+\.workers\.dev[^ ]*' /tmp/frontend-deploy.log | head -n1 || true)
+          fi
+
           echo "value=${preview_url}" >> "$GITHUB_OUTPUT"
 
   deploy-backend:
@@ -184,7 +216,39 @@ jobs:
         if: ${{ github.event_name == 'pull_request' }}
         shell: bash
         run: |
-          preview_url=$(grep -Eo 'https://[^ ]+\.workers\.dev[^ ]*' /tmp/backend-deploy.log | head -n1 || true)
+          set -euo pipefail
+
+          version_id=$(grep -Eo 'Current Version ID: [0-9a-f-]+' /tmp/backend-deploy.log | awk '{print $4}' | tail -n1 || true)
+          preview_url=""
+
+          if pnpm exec wrangler versions list --env "${{ steps.backend_env.outputs.wrangler_env }}" --json > /tmp/backend-versions.json; then
+            preview_url=$(
+              VERSION_ID="${version_id}" node -e '
+                const fs = require("node:fs");
+                const input = fs.readFileSync(0, "utf8").trim();
+                if (!input) process.exit(0);
+                const payload = JSON.parse(input);
+                const versions = Array.isArray(payload)
+                  ? payload
+                  : Array.isArray(payload.items)
+                    ? payload.items
+                    : [];
+                const targetVersionId = process.env.VERSION_ID?.trim();
+                const byId =
+                  targetVersionId &&
+                  versions.find((v) => (v?.id ?? v?.version_id ?? "") === targetVersionId);
+                const firstWithPreview = versions.find(
+                  (v) => typeof v?.preview_url === "string" && v.preview_url.length > 0
+                );
+                process.stdout.write(byId?.preview_url || firstWithPreview?.preview_url || "");
+              ' < /tmp/backend-versions.json
+            )
+          fi
+
+          if [[ -z "${preview_url}" ]]; then
+            preview_url=$(grep -Eo 'https://[^ ]+\.workers\.dev[^ ]*' /tmp/backend-deploy.log | head -n1 || true)
+          fi
+
           echo "value=${preview_url}" >> "$GITHUB_OUTPUT"
 
   comment-preview:
