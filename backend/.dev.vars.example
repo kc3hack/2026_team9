@@ -1,0 +1,8 @@
+FRONTEND_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+AUTH_COOKIE_DOMAIN=
+BETTER_AUTH_URL=http://localhost:8787
+
+# OAuth / auth secrets (local only)
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+BETTER_AUTH_SECRET=replace-with-random-long-secret

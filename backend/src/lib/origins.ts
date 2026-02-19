@@ -1,4 +1,5 @@
 const LOCAL_DEV_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000"];
+const LOCAL_DEV_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 
 function parseOrigin(value: string | undefined): string | null {
 	if (!value || value.trim().length === 0) {
@@ -40,5 +41,17 @@ export function getAllowedOrigins(env: Env): string[] {
 }
 
 export function isAllowedOrigin(origin: string, allowedOrigins: Set<string>): boolean {
-	return allowedOrigins.has(origin);
+	if (allowedOrigins.has(origin)) {
+		return true;
+	}
+
+	try {
+		const url = new URL(origin);
+		return (
+			(url.protocol === "http:" || url.protocol === "https:") &&
+			LOCAL_DEV_HOSTS.has(url.hostname)
+		);
+	} catch {
+		return false;
+	}
 }

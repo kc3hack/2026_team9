@@ -4,6 +4,7 @@ node_modules/
 # cloudflare workers
 .wrangler/
 .dev.vars
+.secrets/*.env
 
 # generated types
 worker-configuration.d.ts

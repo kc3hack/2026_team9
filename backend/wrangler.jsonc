@@ -23,13 +23,14 @@
 	"d1_databases": [
 		{
 			"binding": "AUTH_DB",
-			"database_name": "kc3hack2026-9-auth",
-			"database_id": "00000000-0000-0000-0000-000000000000"
+			"database_name": "kc3hack2026-9",
+			"database_id": "3f4ace1f-5c3e-4ec3-b52e-9db233769ae3"
 		}
 	],
 	"vars": {
 		"FRONTEND_ORIGINS": "https://kc3hack2026-9.yaken.org",
-		"AUTH_COOKIE_DOMAIN": ".kc3hack2026-9.yaken.org"
+		"AUTH_COOKIE_DOMAIN": ".kc3hack2026-9.yaken.org",
+		"BETTER_AUTH_URL": "https://api.kc3hack2026-9.yaken.org"
 	},
 	"compatibility_flags": [
 		"nodejs_compat"
@@ -63,13 +64,14 @@
 			"d1_databases": [
 				{
 					"binding": "AUTH_DB",
-					"database_name": "kc3hack2026-9-auth-develop",
-					"database_id": "00000000-0000-0000-0000-000000000000"
+					"database_name": "kc3hack2026-9-develop",
+					"database_id": "cb1a21d5-e951-4158-8322-b430e927b24f"
 				}
 			],
 			"vars": {
 				"FRONTEND_ORIGINS": "https://develop.kc3hack2026-9.yaken.org",
-				"AUTH_COOKIE_DOMAIN": ".kc3hack2026-9.yaken.org"
+				"AUTH_COOKIE_DOMAIN": ".kc3hack2026-9.yaken.org",
+				"BETTER_AUTH_URL": "https://api.develop.kc3hack2026-9.yaken.org"
 			},
 			"ai": {
 				"binding": "AI"
@@ -95,13 +97,14 @@
 			"d1_databases": [
 				{
 					"binding": "AUTH_DB",
-					"database_name": "kc3hack2026-9-auth-pr",
-					"database_id": "00000000-0000-0000-0000-000000000000"
+					"database_name": "kc3hack2026-9-pr",
+					"database_id": "66d54bca-58ff-4783-9b44-200c95a40e2c"
 				}
 			],
 			"vars": {
 				"FRONTEND_ORIGINS": "https://test.kc3hack2026-9.yaken.org",
-				"AUTH_COOKIE_DOMAIN": ".kc3hack2026-9.yaken.org"
+				"AUTH_COOKIE_DOMAIN": ".kc3hack2026-9.yaken.org",
+				"BETTER_AUTH_URL": "https://api.test.kc3hack2026-9.yaken.org"
 			},
 			"ai": {
 				"binding": "AI"
