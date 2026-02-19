@@ -55,6 +55,7 @@ Cloudflare Workers の環境は `main` が top-level、`develop` が `env.develo
 ```bash
 cd backend
 pnpm install
+pnpm exec wrangler types
 pnpm dev
 ```
 
