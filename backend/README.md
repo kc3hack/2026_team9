@@ -58,6 +58,7 @@ cd backend
 pnpm install
 cp .dev.vars.example .dev.vars
 pnpm exec wrangler d1 migrations apply kc3hack2026-9 --local
+pnpm cf-typegen
 pnpm dev
 ```
 
