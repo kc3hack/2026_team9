@@ -16,7 +16,7 @@ import { getMorningDashboard } from "@/lib/morning-dashboard-api";
 import type { MorningDashboard } from "@/lib/morning-dashboard-api";
 
 type LoadState = {
-  status: "idle" | "loading" | "ready" | "error";
+  status: "loading" | "ready" | "error";
   data: MorningDashboard | null;
 };
 
