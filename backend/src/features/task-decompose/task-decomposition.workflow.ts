@@ -1,7 +1,7 @@
 import {
 	WorkflowEntrypoint,
-	WorkflowEvent,
-	WorkflowStep,
+	type WorkflowEvent,
+	type WorkflowStep,
 } from "cloudflare:workers";
 import { decomposeWithWorkersAi } from "./task-decompose.service";
 import type {
