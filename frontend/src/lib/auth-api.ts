@@ -8,6 +8,8 @@ import {
 
 const { SessionResponseSchema } = createAuthSchemas(z);
 
+export type { SessionResponse };
+
 const defaultLocalApiBaseUrl = "http://localhost:8787";
 
 export class AuthApiError extends Error {
