@@ -104,7 +104,6 @@ export async function upsertWorkflowJob(
         )
         values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         on conflict(workflow_id) do update set
-          user_id = excluded.user_id,
           status = excluded.status,
           task_input = excluded.task_input,
           context = excluded.context,
@@ -114,7 +113,7 @@ export async function upsertWorkflowJob(
           calendar_output = coalesce(excluded.calendar_output, task_workflow_jobs.calendar_output),
           error_message = excluded.error_message,
           updated_at = excluded.updated_at,
-          completed_at = excluded.completed_at
+          completed_at = coalesce(excluded.completed_at, task_workflow_jobs.completed_at)
       `,
     )
     .bind(

@@ -13,7 +13,7 @@ const PRIMARY_CALENDAR_ID = "primary";
 const GOOGLE_CALENDAR_API_BASE = "https://www.googleapis.com/calendar/v3";
 const MIN_DURATION_MINUTES = 15;
 const BASE32HEX_ALPHABET = "0123456789abcdefghijklmnopqrstuv";
-const CALENDAR_REAUTH_MARKER = "REAUTH_REQUIRED_CALENDAR_SCOPE";
+const CALENDAR_REAUTH_MARKER = "REAUTH_REQUIRED_CALENDAR_SCOPE:";
 
 type GoogleEventDateTime = {
   dateTime?: string;
@@ -205,7 +205,7 @@ async function insertEvent(
     const errorMessage = await readErrorMessage(response);
     if (isCalendarPermissionError(response.status, errorMessage)) {
       throw new Error(
-        `${CALENDAR_REAUTH_MARKER}: Google Calendar の権限が不足しています。Google で再ログインしてカレンダー権限を再許可してください。`,
+        `${CALENDAR_REAUTH_MARKER} Google Calendar の権限が不足しています。Google で再ログインしてカレンダー権限を再許可してください。`,
       );
     }
     throw new Error(errorMessage);

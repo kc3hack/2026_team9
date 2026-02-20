@@ -155,19 +155,7 @@ function toStatusLabel(
   }
 
   if (record?.status) {
-    if (record.status === "queued") {
-      return "キュー待ち";
-    }
-    if (record.status === "running") {
-      return "細分化中";
-    }
-    if (record.status === "calendar_syncing") {
-      return "カレンダー反映中";
-    }
-    if (record.status === "completed") {
-      return "完了";
-    }
-    return "失敗";
+    return toStatusLabelFromRecord(record.status);
   }
 
   if (workflowStatus) {
@@ -190,6 +178,22 @@ function toStatusLabel(
   }
 
   return "未実行";
+}
+
+function toStatusLabelFromRecord(status: WorkflowRecord["status"]): string {
+  if (status === "queued") {
+    return "キュー待ち";
+  }
+  if (status === "running") {
+    return "細分化中";
+  }
+  if (status === "calendar_syncing") {
+    return "カレンダー反映中";
+  }
+  if (status === "completed") {
+    return "完了";
+  }
+  return "失敗";
 }
 
 function toWorkflowProgress(
@@ -463,7 +467,7 @@ export default function Home() {
     setView(nextView);
   }, [phase, record?.status, setView, signedInUser]);
 
-  const handleSubmit = async (event: FormEvent<HTMLDivElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!signedInUser) {
@@ -476,6 +480,12 @@ export default function Home() {
     const trimmedTask = task.trim();
     if (trimmedTask.length === 0) {
       setErrorMessage("タスク入力は必須です。");
+      return;
+    }
+
+    const deadlineIso = toDeadlineIso(deadline);
+    if (deadline.trim().length > 0 && !deadlineIso) {
+      setErrorMessage("最終期限の形式が正しくありません。");
       return;
     }
 
@@ -493,7 +503,7 @@ export default function Home() {
       const response = await startTaskWorkflow({
         task: trimmedTask,
         context: context.trim().length > 0 ? context.trim() : undefined,
-        deadline: toDeadlineIso(deadline),
+        deadline: deadlineIso,
         timezone,
         maxSteps: safeMaxSteps,
       });
@@ -602,7 +612,7 @@ export default function Home() {
     if (viewMode === "compose") {
       return (
         <Stack gap={5}>
-          <Box as="form" onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit}>
             <Stack gap={4}>
               <Field.Root required>
                 <Field.Label>細分化したいタスク</Field.Label>
@@ -683,7 +693,7 @@ export default function Home() {
                 </Button>
               </HStack>
             </Stack>
-          </Box>
+          </form>
 
           {history.length > 0 ? (
             <Card.Root variant="outline" bg="var(--app-surface-soft)">
@@ -701,7 +711,7 @@ export default function Home() {
                           </Text>
                           <Text fontSize="xs" color="fg.muted">
                             {formatDateTime(item.createdAt, item.timezone)} /{" "}
-                            {item.status}
+                            {toStatusLabelFromRecord(item.status)}
                           </Text>
                         </Stack>
                         <Button
@@ -822,8 +832,8 @@ export default function Home() {
                   </Card.Header>
                   <Card.Body>
                     <List.Root gap={3}>
-                      {breakdown.subtasks.map((subtask) => (
-                        <List.Item key={`${subtask.title}-${subtask.dueAt}`}>
+                      {breakdown.subtasks.map((subtask, index) => (
+                        <List.Item key={`${index}-${subtask.title}`}>
                           <Stack gap={1}>
                             <Text fontWeight="medium">{subtask.title}</Text>
                             <Text fontSize="sm" color="fg.muted">
@@ -885,8 +895,11 @@ export default function Home() {
                                   size="sm"
                                   variant="outline"
                                   onClick={() => {
+                                    if (!eventItem.htmlLink) {
+                                      return;
+                                    }
                                     window.open(
-                                      eventItem.htmlLink ?? "",
+                                      eventItem.htmlLink,
                                       "_blank",
                                       "noopener,noreferrer",
                                     );
@@ -952,7 +965,7 @@ export default function Home() {
                             <Text fontWeight="medium">{item.taskInput}</Text>
                             <Text fontSize="xs" color="fg.muted">
                               {formatDateTime(item.createdAt, item.timezone)} /{" "}
-                              {item.status}
+                              {toStatusLabelFromRecord(item.status)}
                             </Text>
                           </Stack>
                           <Button
@@ -984,8 +997,8 @@ export default function Home() {
       position="relative"
       overflow="hidden"
     >
-      <Box className="app-orb app-orb--one" />
-      <Box className="app-orb app-orb--two" />
+      <Box className="app-orb app-orb--one" aria-hidden="true" />
+      <Box className="app-orb app-orb--two" aria-hidden="true" />
 
       <Container maxW="5xl" position="relative" zIndex={1}>
         <Stack gap={6}>

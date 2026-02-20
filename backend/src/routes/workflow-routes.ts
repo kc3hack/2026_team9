@@ -48,23 +48,26 @@ export function registerWorkflowRoutes(app: App): void {
       },
     });
 
-    await upsertWorkflowJob(c.env.AUTH_DB, {
-      workflowId: instance.id,
-      userId: authSession.user.id,
-      status: "queued",
-      taskInput: payload.task,
-      context: payload.context,
-      deadline: payload.deadline,
-      timezone: payload.timezone,
-      errorMessage: null,
-      completedAt: null,
-    }).catch((error) => {
+    try {
+      await upsertWorkflowJob(c.env.AUTH_DB, {
+        workflowId: instance.id,
+        userId: authSession.user.id,
+        status: "queued",
+        taskInput: payload.task,
+        context: payload.context,
+        deadline: payload.deadline,
+        timezone: payload.timezone,
+        errorMessage: null,
+        completedAt: null,
+      });
+    } catch (error) {
       console.error("Failed to upsert queued workflow job", {
         workflowId: instance.id,
         userId: authSession.user.id,
         error,
       });
-    });
+      return c.json({ error: "Failed to persist workflow job." }, 500);
+    }
 
     const [workflowStatus, record] = await Promise.all([
       instance.status(),
@@ -74,6 +77,7 @@ export function registerWorkflowRoutes(app: App): void {
     return c.json(
       {
         id: instance.id,
+        status: workflowStatus,
         workflowStatus,
         record,
       },
@@ -106,14 +110,17 @@ export function registerWorkflowRoutes(app: App): void {
     }
 
     const id = c.req.param("id");
+    const record = await getWorkflowJob(c.env.AUTH_DB, id, authSession.user.id);
+    if (!record) {
+      return c.json({ error: "Workflow not found." }, 404);
+    }
+
     const instance = await c.env.MY_WORKFLOW.get(id);
-    const [workflowStatus, record] = await Promise.all([
-      instance.status(),
-      getWorkflowJob(c.env.AUTH_DB, id, authSession.user.id),
-    ]);
+    const workflowStatus = await instance.status();
 
     return c.json({
       id,
+      status: workflowStatus,
       workflowStatus,
       record,
     });
