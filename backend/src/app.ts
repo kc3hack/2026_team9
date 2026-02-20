@@ -1,11 +1,11 @@
-import { Hono } from "hono";
 import type { Context } from "hono";
-import { registerRootRoutes } from "./routes/root-routes";
+import { Hono } from "hono";
+import { getAllowedOrigins, isAllowedOrigin } from "./lib/origins";
 import { registerAuthRoutes } from "./routes/auth-routes";
+import { registerRootRoutes } from "./routes/root-routes";
 import { registerTaskRoutes } from "./routes/task-routes";
 import { registerWorkflowRoutes } from "./routes/workflow-routes";
 import type { App } from "./types/app";
-import { getAllowedOrigins, isAllowedOrigin } from "./lib/origins";
 
 function applyCorsHeaders(c: Context<{ Bindings: Env }>, origin: string): void {
   const requestedHeaders = c.req.header("access-control-request-headers");

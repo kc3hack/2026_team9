@@ -22,7 +22,7 @@
     "react-dom": "19.2.3"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.2",
+    "@biomejs/biome": "^2.4.3",
     "@opennextjs/cloudflare": "^1.16.5",
     "@types/node": "^20",
     "@types/react": "^19",
