@@ -296,7 +296,13 @@ export default function DashboardPage() {
               </HStack>
 
               {routine.length === 0 ? (
-                <Text color="gray.500">データを読み込んでいます。</Text>
+                state.status === "error" ? (
+                  <Text color="red.500">
+                    タイムラインの取得に失敗しました。
+                  </Text>
+                ) : (
+                  <Text color="gray.500">データを読み込んでいます。</Text>
+                )
               ) : (
                 <Stack gap={3}>
                   {routine.map((step) => (
