@@ -1,22 +1,38 @@
-import { z } from "zod";
+import type { ZodType } from "zod";
 
-export const TaskDecomposeRequestSchema = z.object({
-	task: z.string().trim().min(1),
-	context: z
-		.string()
-		.trim()
-		.optional()
-		.transform((value) => (value && value.length > 0 ? value : undefined)),
-});
+export type TaskDecomposeRequest = {
+	task: string;
+	context?: string;
+};
 
-export type TaskDecomposeRequest = z.infer<
-	typeof TaskDecomposeRequestSchema
->;
+export type TaskDecomposeResult = {
+	goal: string;
+	subtasks: string[];
+	assumptions: string[];
+};
 
-export const TaskDecomposeResultSchema = z.object({
-	goal: z.string(),
-	subtasks: z.array(z.string()),
-	assumptions: z.array(z.string()),
-});
+export type TaskDecomposeSchemas = {
+	TaskDecomposeRequestSchema: ZodType<TaskDecomposeRequest>;
+	TaskDecomposeResultSchema: ZodType<TaskDecomposeResult>;
+};
 
-export type TaskDecomposeResult = z.infer<typeof TaskDecomposeResultSchema>;
+export function createTaskDecomposeSchemas(
+	z: typeof import("zod"),
+): TaskDecomposeSchemas {
+	const TaskDecomposeRequestSchema = z.object({
+		task: z.string().trim().min(1),
+		context: z
+			.string()
+			.trim()
+			.optional()
+			.transform((value) => (value && value.length > 0 ? value : undefined)),
+	});
+
+	const TaskDecomposeResultSchema = z.object({
+		goal: z.string(),
+		subtasks: z.array(z.string()),
+		assumptions: z.array(z.string()),
+	});
+
+	return { TaskDecomposeRequestSchema, TaskDecomposeResultSchema };
+}
