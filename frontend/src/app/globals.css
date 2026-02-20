@@ -12,9 +12,11 @@ body {
   color-scheme: light;
   --app-bg: linear-gradient(180deg, #f5f8ff 0%, #eef6ff 45%, #f7fbf3 100%);
   --app-surface: #ffffff;
+  --app-surface-soft: #f7fbff;
   --app-border: #d7dfeb;
   --app-text: #101a2b;
   --app-muted: #4f5d77;
+  --flow-shadow: 0 24px 58px -34px rgba(28, 47, 86, 0.48);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -22,9 +24,11 @@ body {
     color-scheme: dark;
     --app-bg: linear-gradient(180deg, #0d1422 0%, #111a2b 45%, #101c19 100%);
     --app-surface: #151f31;
+    --app-surface-soft: #18253b;
     --app-border: #2a3953;
     --app-text: #e6eefb;
     --app-muted: #a5b5d1;
+    --flow-shadow: 0 26px 62px -34px rgba(0, 0, 0, 0.68);
   }
 }
 
@@ -32,21 +36,98 @@ html.light {
   color-scheme: light;
   --app-bg: linear-gradient(180deg, #f5f8ff 0%, #eef6ff 45%, #f7fbf3 100%);
   --app-surface: #ffffff;
+  --app-surface-soft: #f7fbff;
   --app-border: #d7dfeb;
   --app-text: #101a2b;
   --app-muted: #4f5d77;
+  --flow-shadow: 0 24px 58px -34px rgba(28, 47, 86, 0.48);
 }
 
 html.dark {
   color-scheme: dark;
   --app-bg: linear-gradient(180deg, #0d1422 0%, #111a2b 45%, #101c19 100%);
   --app-surface: #151f31;
+  --app-surface-soft: #18253b;
   --app-border: #2a3953;
   --app-text: #e6eefb;
   --app-muted: #a5b5d1;
+  --flow-shadow: 0 26px 62px -34px rgba(0, 0, 0, 0.68);
 }
 
 body {
   background: var(--app-bg);
   color: var(--app-text);
+}
+
+.flow-card {
+  box-shadow: var(--flow-shadow);
+}
+
+.flow-card--forward {
+  animation: flow-screen-enter-forward 340ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.flow-card--backward {
+  animation: flow-screen-enter-backward 340ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.app-orb {
+  pointer-events: none;
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(1px);
+  opacity: 0.55;
+}
+
+.app-orb--one {
+  width: min(48vw, 440px);
+  height: min(48vw, 440px);
+  top: -18%;
+  right: -12%;
+  background: radial-gradient(
+    circle at center,
+    rgb(43 132 255 / 28%) 0%,
+    rgb(43 132 255 / 0%) 72%
+  );
+}
+
+.app-orb--two {
+  width: min(42vw, 360px);
+  height: min(42vw, 360px);
+  bottom: -16%;
+  left: -10%;
+  background: radial-gradient(
+    circle at center,
+    rgb(16 185 129 / 22%) 0%,
+    rgb(16 185 129 / 0%) 72%
+  );
+}
+
+@keyframes flow-screen-enter-forward {
+  from {
+    opacity: 0;
+    transform: translateX(20px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes flow-screen-enter-backward {
+  from {
+    opacity: 0;
+    transform: translateX(-20px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flow-card--forward,
+  .flow-card--backward {
+    animation: none;
+  }
 }
