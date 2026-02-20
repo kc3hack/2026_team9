@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
 import {
   Badge,
   Box,
@@ -12,8 +11,9 @@ import {
   Stack,
   Text,
 } from "@chakra-ui/react";
-import { getMorningDashboard } from "@/lib/morning-dashboard-api";
+import { useEffect, useMemo, useState } from "react";
 import type { MorningDashboard } from "@/lib/morning-dashboard-api";
+import { getMorningDashboard } from "@/lib/morning-dashboard-api";
 
 type LoadState = {
   status: "loading" | "ready" | "error";
