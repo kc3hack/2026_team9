@@ -1,0 +1,31 @@
+{
+  "userId": "demo-user",
+  "date": "2026-02-20",
+  "earliestEvent": {
+    "title": "朝会",
+    "location": "オンライン",
+    "startTime": "09:00"
+  },
+  "earliestEventJson": "{\"title\":\"朝会\",\"location\":\"オンライン\",\"startTime\":\"09:00\"}",
+  "wakeUpTime": "07:00",
+  "departTime": "08:30",
+  "createdAt": "2026-02-20T06:00:00.000Z",
+  "updatedAt": "2026-02-20T06:45:00.000Z",
+  "routine": [
+    { "id": "wake", "label": "起床", "offsetMinutes": 90 },
+    { "id": "water", "label": "水を飲む", "offsetMinutes": 85, "durationMinutes": 5 },
+    { "id": "shower", "label": "シャワー", "offsetMinutes": 70, "durationMinutes": 15 },
+    { "id": "breakfast", "label": "朝食", "offsetMinutes": 45, "durationMinutes": 20 },
+    { "id": "bag", "label": "持ち物チェック", "offsetMinutes": 20, "durationMinutes": 10 },
+    { "id": "leave", "label": "出発", "offsetMinutes": 0 }
+  ],
+  "overrides": [
+    {
+      "date": "2026-02-20",
+      "note": "今日はジムがあるので朝食短め。",
+      "steps": [
+        { "id": "gym", "label": "軽い運動", "offsetMinutes": 55, "durationMinutes": 10, "isOverride": true }
+      ]
+    }
+  ]
+}
