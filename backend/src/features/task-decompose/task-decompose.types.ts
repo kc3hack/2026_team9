@@ -1,11 +1,12 @@
-export type TaskDecomposeRequest = {
-	task: string;
-	context?: string;
-	userId?: string;
-};
+import { z } from "zod";
+import {
+	createTaskDecomposeSchemas,
+	type TaskDecomposeRequest,
+	type TaskDecomposeResult,
+} from "../../../../shared/schemas/task-decompose";
 
-export type TaskDecomposeResult = {
-	goal: string;
-	subtasks: string[];
-	assumptions: string[];
-};
+const { TaskDecomposeRequestSchema, TaskDecomposeResultSchema } =
+	createTaskDecomposeSchemas(z);
+
+export type { TaskDecomposeRequest, TaskDecomposeResult };
+export { TaskDecomposeRequestSchema, TaskDecomposeResultSchema };

@@ -1,17 +1,12 @@
 "use client";
 
-export type SessionResponse = {
-  session: {
-    id: string;
-    userId: string;
-  };
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    image?: string | null;
-  };
-} | null;
+import { z } from "zod";
+import {
+  createAuthSchemas,
+  type SessionResponse,
+} from "../../../shared/schemas/auth";
+
+const { SessionResponseSchema } = createAuthSchemas(z);
 
 const defaultLocalApiBaseUrl = "http://localhost:8787";
 
@@ -106,7 +101,13 @@ export async function getSession(): Promise<SessionResponse> {
     );
   }
 
-  return (await response.json()) as SessionResponse;
+  const payload = await response.json();
+  const parsed = SessionResponseSchema.safeParse(payload);
+  if (!parsed.success) {
+    throw new Error("Session response did not match the expected shape.");
+  }
+
+  return parsed.data;
 }
 
 export async function signInWithGoogle(callbackUrl: string): Promise<void> {

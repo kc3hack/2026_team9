@@ -7,6 +7,7 @@ if (process.env.NODE_ENV === "development") {
 
 const nextConfig: NextConfig = {
   experimental: {
+    externalDir: true,
     optimizePackageImports: ["@chakra-ui/react"],
   },
 };
