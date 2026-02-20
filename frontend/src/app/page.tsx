@@ -36,6 +36,7 @@ type RunPhase = "idle" | "starting" | "waiting" | "completed" | "failed";
 
 type ErrorAction = "start" | "status" | "history" | "session";
 const CALENDAR_REAUTH_MARKER = "REAUTH_REQUIRED_CALENDAR_SCOPE:";
+const DEFAULT_USER_TIMEZONE = "Asia/Tokyo";
 
 function fallbackErrorMessage(action: ErrorAction): string {
   if (action === "start") {
@@ -349,7 +350,8 @@ export default function Home() {
     const safeMaxSteps = Number.isFinite(parsedMaxSteps)
       ? Math.min(Math.max(Math.trunc(parsedMaxSteps), 1), 12)
       : 6;
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone ?? "UTC";
+    const timezone =
+      Intl.DateTimeFormat().resolvedOptions().timeZone ?? DEFAULT_USER_TIMEZONE;
 
     setPhase("starting");
     setErrorMessage(null);

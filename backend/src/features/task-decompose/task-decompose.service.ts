@@ -8,6 +8,8 @@ const AI_MODEL = "@cf/meta/llama-3.1-8b-instruct-fp8";
 const DEFAULT_MAX_STEPS = 6;
 const MIN_DURATION_MINUTES = 15;
 const MAX_DURATION_MINUTES = 240;
+const DEFAULT_INFERRED_DEADLINE_DAYS = 7;
+const DEFAULT_PLANNING_TIMEZONE = "Asia/Tokyo";
 
 function asStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) {
@@ -72,6 +74,32 @@ function sanitizeDuration(value: unknown, fallback: number): number {
 
 function fallbackSummary(task: string): string {
   return `"${task}" を実行可能な単位へ分解した計画です。`;
+}
+
+function normalizeTimezone(timezone: string | undefined): string {
+  if (!timezone || timezone.trim().length === 0) {
+    return DEFAULT_PLANNING_TIMEZONE;
+  }
+
+  return timezone.trim();
+}
+
+function formatPromptDateInTimezone(date: Date, timezone: string): string {
+  try {
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+      weekday: "short",
+    }).format(date);
+  } catch {
+    return date.toISOString();
+  }
 }
 
 function fallbackLabels(): Array<{ title: string; description: string }> {
@@ -232,6 +260,21 @@ function normalizeResult(
 
 function createPrompt(payload: TaskDecomposeRequest): string {
   const maxSteps = payload.maxSteps ?? DEFAULT_MAX_STEPS;
+  const planningTimezone = normalizeTimezone(payload.timezone);
+  const now = new Date();
+
+  const deadlineGuidance = payload.deadline
+    ? [
+        `Final deadline (hard constraint): ${payload.deadline}`,
+        "All subtask dueAt values must be on or before the final deadline.",
+      ]
+    : [
+        "No explicit final deadline is provided.",
+        "Infer a realistic final deadline from the task text/context when possible.",
+        "Use explicit dates first; if not available, resolve relative terms against current date/time.",
+        `If no clues exist, set a provisional final deadline to about ${DEFAULT_INFERRED_DEADLINE_DAYS} days from now.`,
+        "When you infer or assume a deadline, explain it in assumptions.",
+      ];
 
   return [
     "You are a task-planning assistant.",
@@ -243,12 +286,11 @@ function createPrompt(payload: TaskDecomposeRequest): string {
     '- "description": concrete next action',
     '- "dueAt": ISO 8601 datetime in UTC (example: 2026-02-20T09:00:00.000Z)',
     `- "durationMinutes": integer between ${MIN_DURATION_MINUTES} and ${MAX_DURATION_MINUTES}`,
-    payload.deadline
-      ? `The final subtask dueAt must be on or before this deadline: ${payload.deadline}`
-      : "If no deadline is provided, schedule near-future dueAt values.",
-    payload.timezone
-      ? `User timezone for planning context: ${payload.timezone}`
-      : "",
+    `Current datetime (UTC): ${now.toISOString()}`,
+    `Reference timezone: ${planningTimezone}`,
+    `Current datetime in reference timezone: ${formatPromptDateInTimezone(now, planningTimezone)}`,
+    "Resolve relative expressions such as today/tomorrow/next week against the current datetime above.",
+    ...deadlineGuidance,
     `Task: ${payload.task}`,
     payload.context ? `Context: ${payload.context}` : "",
     'Output format: {"goal":"string","summary":"string","subtasks":[{"title":"string","description":"string","dueAt":"string","durationMinutes":60}],"assumptions":["..."]}',
