@@ -101,7 +101,13 @@ export function AuthPanel() {
   };
 
   return (
-    <Box bg="white" borderWidth="1px" borderRadius="2xl" p={{ base: 5, md: 7 }}>
+    <Box
+      bg="var(--app-surface)"
+      borderWidth="1px"
+      borderColor="var(--app-border)"
+      borderRadius="2xl"
+      p={{ base: 5, md: 7 }}
+    >
       <Stack gap={4}>
         <HStack gap={3} justify="space-between" flexWrap="wrap">
           <Text fontWeight="semibold">ユーザー認証</Text>

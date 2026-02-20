@@ -2,10 +2,21 @@ export type TaskDecomposeRequest = {
   task: string;
   context?: string;
   userId?: string;
+  deadline?: string;
+  timezone?: string;
+  maxSteps?: number;
+};
+
+export type TaskSubtask = {
+  title: string;
+  description: string;
+  dueAt: string;
+  durationMinutes: number;
 };
 
 export type TaskDecomposeResult = {
   goal: string;
-  subtasks: string[];
+  summary: string;
+  subtasks: TaskSubtask[];
   assumptions: string[];
 };

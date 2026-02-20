@@ -7,3 +7,46 @@ body {
 * {
   box-sizing: border-box;
 }
+
+:root {
+  color-scheme: light;
+  --app-bg: linear-gradient(180deg, #f5f8ff 0%, #eef6ff 45%, #f7fbf3 100%);
+  --app-surface: #ffffff;
+  --app-border: #d7dfeb;
+  --app-text: #101a2b;
+  --app-muted: #4f5d77;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --app-bg: linear-gradient(180deg, #0d1422 0%, #111a2b 45%, #101c19 100%);
+    --app-surface: #151f31;
+    --app-border: #2a3953;
+    --app-text: #e6eefb;
+    --app-muted: #a5b5d1;
+  }
+}
+
+html.light {
+  color-scheme: light;
+  --app-bg: linear-gradient(180deg, #f5f8ff 0%, #eef6ff 45%, #f7fbf3 100%);
+  --app-surface: #ffffff;
+  --app-border: #d7dfeb;
+  --app-text: #101a2b;
+  --app-muted: #4f5d77;
+}
+
+html.dark {
+  color-scheme: dark;
+  --app-bg: linear-gradient(180deg, #0d1422 0%, #111a2b 45%, #101c19 100%);
+  --app-surface: #151f31;
+  --app-border: #2a3953;
+  --app-text: #e6eefb;
+  --app-muted: #a5b5d1;
+}
+
+body {
+  background: var(--app-bg);
+  color: var(--app-text);
+}
