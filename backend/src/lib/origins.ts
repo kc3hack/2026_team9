@@ -1,5 +1,6 @@
 const LOCAL_DEV_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000"];
 const LOCAL_DEV_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
+const TEAM_ROOT_DOMAIN = "kc3hack2026-9.yaken.org";
 
 function parseOrigin(value: string | undefined): string | null {
 	if (!value || value.trim().length === 0) {
@@ -47,11 +48,15 @@ export function isAllowedOrigin(origin: string, allowedOrigins: Set<string>): bo
 
 	try {
 		const url = new URL(origin);
+		const isHttpOrigin = url.protocol === "http:" || url.protocol === "https:";
+		const isTeamDomainOrigin =
+			url.hostname === TEAM_ROOT_DOMAIN ||
+			url.hostname.endsWith(`.${TEAM_ROOT_DOMAIN}`);
+
 		// Allow loopback origins with arbitrary ports for local development tools.
-		// This fallback is limited to localhost/127.0.0.1/::1 only.
+		// Allow all project subdomains as a fallback for hackathon environments.
 		return (
-			(url.protocol === "http:" || url.protocol === "https:") &&
-			LOCAL_DEV_HOSTS.has(url.hostname)
+			isHttpOrigin && (LOCAL_DEV_HOSTS.has(url.hostname) || isTeamDomainOrigin)
 		);
 	} catch {
 		return false;

@@ -31,15 +31,18 @@ export function createApp(): App {
 				? originHeader
 				: null;
 
-		if (allowedOrigin) {
-			applyCorsHeaders(c, allowedOrigin);
-		}
-
 		if (c.req.method === "OPTIONS") {
+			if (allowedOrigin) {
+				applyCorsHeaders(c, allowedOrigin);
+			}
 			return c.body(null, 204);
 		}
 
 		await next();
+
+		if (allowedOrigin) {
+			applyCorsHeaders(c, allowedOrigin);
+		}
 	});
 
 	registerRootRoutes(app);
