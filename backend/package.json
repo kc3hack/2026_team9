@@ -1,26 +1,30 @@
 {
-	"name": "backend",
-	"version": "0.0.0",
-	"private": true,
-	"scripts": {
-		"deploy": "wrangler deploy",
-		"start": "wrangler dev --port 8787",
-		"dev": "wrangler dev --port 8787",
-		"cf-typegen": "wrangler types",
-		"secrets:put:main": "wrangler secret bulk .secrets/main.env",
-		"secrets:put:develop": "wrangler secret bulk .secrets/develop.env --env develop",
-		"secrets:put:pr": "wrangler secret bulk .secrets/pr.env --env pr",
-		"secrets:put:all": "pnpm run secrets:put:main && pnpm run secrets:put:develop && pnpm run secrets:put:pr"
-	},
-	"devDependencies": {
-		"@types/node": "^25.2.3",
-		"typescript": "^5.0.4",
-		"wrangler": "^4.65.0"
-	},
-	"dependencies": {
-		"better-auth": "^1.4.18",
-		"hono": "^4.11.9",
-		"kysely": "^0.28.11",
-		"kysely-d1": "^0.4.0"
-	}
+  "name": "backend",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "start": "wrangler dev --port 8787",
+    "dev": "wrangler dev --port 8787",
+    "cf-typegen": "wrangler types",
+    "check": "biome check .",
+    "lint": "biome lint .",
+    "format": "biome format --write .",
+    "secrets:put:main": "wrangler secret bulk .secrets/main.env",
+    "secrets:put:develop": "wrangler secret bulk .secrets/develop.env --env develop",
+    "secrets:put:pr": "wrangler secret bulk .secrets/pr.env --env pr",
+    "secrets:put:all": "pnpm run secrets:put:main && pnpm run secrets:put:develop && pnpm run secrets:put:pr"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.3",
+    "@types/node": "^25.2.3",
+    "typescript": "^5.0.4",
+    "wrangler": "^4.65.0"
+  },
+  "dependencies": {
+    "better-auth": "^1.4.18",
+    "hono": "^4.11.9",
+    "kysely": "^0.28.11",
+    "kysely-d1": "^0.4.0"
+  }
 }

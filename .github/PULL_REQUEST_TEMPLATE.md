@@ -1,16 +1,16 @@
-## Summary
+## 概要
 - 
 
-## Changes
+## 変更内容
 - 
 
-## How To Verify
+## 動作確認方法
 1. 
 
-## Checklist
-- [ ] I confirmed the relevant behavior locally.
-- [ ] I updated tests or validated that existing tests cover this change.
-- [ ] I checked for breaking changes.
+## チェックリスト
+- [ ] 関連する挙動をローカルで確認しました。
+- [ ] テストを追加・更新した、または既存テストでこの変更がカバーされることを確認しました。
+- [ ] 破壊的変更の有無を確認しました。
 
-## Related Issues
+## 関連 Issue
 - Closes #
