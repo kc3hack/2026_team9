@@ -1,11 +1,11 @@
 export type TaskDecomposeRequest = {
-	task: string;
-	context?: string;
-	userId?: string;
+  task: string;
+  context?: string;
+  userId?: string;
 };
 
 export type TaskDecomposeResult = {
-	goal: string;
-	subtasks: string[];
-	assumptions: string[];
+  goal: string;
+  subtasks: string[];
+  assumptions: string[];
 };

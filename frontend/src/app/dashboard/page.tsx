@@ -144,9 +144,7 @@ export default function DashboardPage() {
                     </Heading>
                   </Stack>
                   <Badge
-                    colorPalette={
-                      state.status === "error" ? "red" : "green"
-                    }
+                    colorPalette={state.status === "error" ? "red" : "green"}
                     variant="subtle"
                   >
                     {state.status === "loading"
