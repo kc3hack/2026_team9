@@ -31,6 +31,8 @@
 ## 構成の要点
 
 - `src/app/layout.tsx`: ルートレイアウトと全体 Provider
+- `src/components/auth/auth-panel.tsx`: Google ログイン UI
+- `src/lib/auth-api.ts`: backend Better Auth API 呼び出し
 - `src/components/ui/provider.tsx`: Chakra UI / テーマ設定
 - `next.config.ts`: 開発時の OpenNext 初期化と Next 設定
 - `open-next.config.ts`: OpenNext の Cloudflare 向け設定
@@ -41,6 +43,7 @@
 ```bash
 cd frontend
 pnpm install
+cp .dev.vars.example .dev.vars
 pnpm dev
 ```
 
@@ -73,6 +76,33 @@ pnpm exec wrangler login
 - backend PR (`pull_request`): `https://api.test.kc3hack2026-9.yaken.org`
 
 Cloudflare Workers の環境は `main` が top-level、`develop` が `env.develop`、PR が `env.pr` を使います。
+
+認証用の API URL は `NEXT_PUBLIC_API_BASE_URL` を使って backend 側 Better Auth (`/api/auth/*`) を参照します。
+
+## 環境変数の設定先ルール
+
+現在 frontend で使っている主要変数:
+
+- `NEXT_PUBLIC_API_BASE_URL`（backend API のベース URL）
+
+設定先:
+
+- `main/develop/pr`: `frontend/wrangler.jsonc` の `vars` / `env.<name>.vars`
+- `local`: `frontend/.dev.vars`
+
+補足:
+
+- `NEXT_PUBLIC_` で始まる値はクライアントで参照されるため、機密値を入れないでください
+- frontend で機密値を扱う必要が出た場合は、基本的に frontend に置かず backend 側で管理してください
+
+## frontend 変数を追加するときの手順
+
+1. その値をクライアント公開してよいかを確認する
+2. `NEXT_PUBLIC_` が必要な値のみ frontend に置く
+3. `frontend/wrangler.jsonc` の `vars` / `env.develop.vars` / `env.pr.vars` に追加する
+4. `frontend/.dev.vars` にローカル値を追加する
+5. `pnpm cf-typegen` を実行して型定義を更新する
+6. README の変数一覧を更新する
 
 GitHub Actions での自動デプロイ対応:
 

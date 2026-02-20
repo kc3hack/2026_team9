@@ -38,6 +38,11 @@
 
 <!-- 使用技術を入力してください -->
 
+## 開発者向け設定
+
+- backend 環境変数と secrets の運用: `backend/README.md`
+- frontend 環境変数の運用: `frontend/README.md`
+
 
 <!--
 markdownの記法はこちらを参照してください！

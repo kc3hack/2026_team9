@@ -22,6 +22,13 @@ export class TaskDecompositionWorkflow extends WorkflowEntrypoint<
 		if (!payload) {
 			throw new Error("Workflow payload must include a non-empty `task` string.");
 		}
+		if (!payload.userId || payload.userId.trim().length === 0) {
+			throw new Error(
+				"Workflow payload must include a non-empty `userId` string.",
+			);
+		}
+
+		console.log("Starting task decomposition workflow", { userId: payload.userId });
 
 		return await step.do("decompose-task-with-workers-ai", async () => {
 			return await decomposeWithWorkersAi(this.env, payload);

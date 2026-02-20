@@ -14,11 +14,18 @@ on:
       - main
       - develop
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   deploy-frontend:
     name: Deploy Frontend Worker
     if: ${{ github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false) }}
     runs-on: ubuntu-latest
+    outputs:
+      preview_url: ${{ steps.frontend_version.outputs.preview_url }}
+      public_url: ${{ steps.frontend_env.outputs.public_url }}
     concurrency:
       group: frontend-worker-${{ github.event_name == 'pull_request' && 'pr' || github.ref_name }}
       cancel-in-progress: true
@@ -47,10 +54,16 @@ jobs:
         run: |
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             echo "wrangler_env=pr" >> "$GITHUB_OUTPUT"
+            echo "api_base_url=https://api.test.kc3hack2026-9.yaken.org" >> "$GITHUB_OUTPUT"
+            echo "public_url=https://test.kc3hack2026-9.yaken.org" >> "$GITHUB_OUTPUT"
           elif [[ "${{ github.ref_name }}" == "develop" ]]; then
             echo "wrangler_env=develop" >> "$GITHUB_OUTPUT"
+            echo "api_base_url=https://api.develop.kc3hack2026-9.yaken.org" >> "$GITHUB_OUTPUT"
+            echo "public_url=https://develop.kc3hack2026-9.yaken.org" >> "$GITHUB_OUTPUT"
           elif [[ "${{ github.ref_name }}" == "main" ]]; then
             echo "wrangler_env=" >> "$GITHUB_OUTPUT"
+            echo "api_base_url=https://api.kc3hack2026-9.yaken.org" >> "$GITHUB_OUTPUT"
+            echo "public_url=https://kc3hack2026-9.yaken.org" >> "$GITHUB_OUTPUT"
           else
             echo "Unsupported branch: ${{ github.ref_name }}" >&2
             exit 1
@@ -73,16 +86,99 @@ jobs:
             exit 1
           fi
 
-      - name: Deploy frontend
+      - name: Upload frontend version
+        id: frontend_upload
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: pnpm run deploy --env "${{ steps.frontend_env.outputs.wrangler_env }}"
+          # NEXT_PUBLIC_* values are embedded at OpenNext/Next.js build time.
+          NEXT_PUBLIC_API_BASE_URL: ${{ steps.frontend_env.outputs.api_base_url }}
+          WRANGLER_OUTPUT_FILE_PATH: /tmp/frontend-wrangler-output.jsonl
+        shell: bash
+        run: |
+          set -euo pipefail
+          : > "${WRANGLER_OUTPUT_FILE_PATH}"
+
+          pnpm exec opennextjs-cloudflare build
+
+          if [[ -n "${{ steps.frontend_env.outputs.wrangler_env }}" ]]; then
+            pnpm exec opennextjs-cloudflare upload --env "${{ steps.frontend_env.outputs.wrangler_env }}" 2>&1 | tee /tmp/frontend-upload.log
+          else
+            pnpm exec opennextjs-cloudflare upload 2>&1 | tee /tmp/frontend-upload.log
+          fi
+
+      - name: Read frontend version metadata
+        id: frontend_version
+        env:
+          WRANGLER_OUTPUT_FILE_PATH: /tmp/frontend-wrangler-output.jsonl
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require("node:fs");
+
+          const outputPath = process.env.WRANGLER_OUTPUT_FILE_PATH;
+          const githubOutput = process.env.GITHUB_OUTPUT;
+          let versionId = "";
+          let previewUrl = "";
+
+          if (outputPath && fs.existsSync(outputPath)) {
+            const lines = fs.readFileSync(outputPath, "utf8").split("\n").filter(Boolean);
+            for (const line of lines) {
+              try {
+                const payload = JSON.parse(line);
+                if (payload?.type === "version-upload") {
+                  versionId = payload.version_id || versionId;
+                  previewUrl = payload.preview_url || previewUrl;
+                }
+              } catch {}
+            }
+          }
+
+          if (!versionId) {
+            process.stderr.write(`Failed to read version_id from ${outputPath}\n`);
+            process.exit(1);
+          }
+
+          fs.appendFileSync(githubOutput, `version_id=${versionId}\n`);
+          fs.appendFileSync(githubOutput, `preview_url=${previewUrl}\n`);
+          NODE
+
+      - name: Deploy uploaded frontend version
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -n "${{ steps.frontend_env.outputs.wrangler_env }}" ]]; then
+            pnpm exec wrangler versions deploy "${{ steps.frontend_version.outputs.version_id }}@100" --env "${{ steps.frontend_env.outputs.wrangler_env }}" --yes
+          else
+            pnpm exec wrangler versions deploy "${{ steps.frontend_version.outputs.version_id }}@100" --yes
+          fi
+
+      - name: Apply frontend triggers
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -n "${{ steps.frontend_env.outputs.wrangler_env }}" ]]; then
+            pnpm exec wrangler triggers deploy --env "${{ steps.frontend_env.outputs.wrangler_env }}"
+          else
+            pnpm exec wrangler triggers deploy
+          fi
 
   deploy-backend:
     name: Deploy Backend Worker
     if: ${{ github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false) }}
     runs-on: ubuntu-latest
+    outputs:
+      preview_url: ${{ steps.backend_version.outputs.preview_url }}
+      public_url: ${{ steps.backend_env.outputs.public_url }}
     concurrency:
       group: backend-worker-${{ github.event_name == 'pull_request' && 'pr' || github.ref_name }}
       cancel-in-progress: true
@@ -111,10 +207,13 @@ jobs:
         run: |
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             echo "wrangler_env=pr" >> "$GITHUB_OUTPUT"
+            echo "public_url=https://api.test.kc3hack2026-9.yaken.org" >> "$GITHUB_OUTPUT"
           elif [[ "${{ github.ref_name }}" == "develop" ]]; then
             echo "wrangler_env=develop" >> "$GITHUB_OUTPUT"
+            echo "public_url=https://api.develop.kc3hack2026-9.yaken.org" >> "$GITHUB_OUTPUT"
           elif [[ "${{ github.ref_name }}" == "main" ]]; then
             echo "wrangler_env=" >> "$GITHUB_OUTPUT"
+            echo "public_url=https://api.kc3hack2026-9.yaken.org" >> "$GITHUB_OUTPUT"
           else
             echo "Unsupported branch: ${{ github.ref_name }}" >&2
             exit 1
@@ -137,8 +236,140 @@ jobs:
             exit 1
           fi
 
-      - name: Deploy backend
+      - name: Upload backend version
+        id: backend_upload
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: pnpm run deploy --env "${{ steps.backend_env.outputs.wrangler_env }}"
+          WRANGLER_OUTPUT_FILE_PATH: /tmp/backend-wrangler-output.jsonl
+        shell: bash
+        run: |
+          set -euo pipefail
+          : > "${WRANGLER_OUTPUT_FILE_PATH}"
+
+          if [[ -n "${{ steps.backend_env.outputs.wrangler_env }}" ]]; then
+            pnpm exec wrangler versions upload --env "${{ steps.backend_env.outputs.wrangler_env }}" 2>&1 | tee /tmp/backend-upload.log
+          else
+            pnpm exec wrangler versions upload 2>&1 | tee /tmp/backend-upload.log
+          fi
+
+      - name: Read backend version metadata
+        id: backend_version
+        env:
+          WRANGLER_OUTPUT_FILE_PATH: /tmp/backend-wrangler-output.jsonl
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require("node:fs");
+
+          const outputPath = process.env.WRANGLER_OUTPUT_FILE_PATH;
+          const githubOutput = process.env.GITHUB_OUTPUT;
+          let versionId = "";
+          let previewUrl = "";
+
+          if (outputPath && fs.existsSync(outputPath)) {
+            const lines = fs.readFileSync(outputPath, "utf8").split("\n").filter(Boolean);
+            for (const line of lines) {
+              try {
+                const payload = JSON.parse(line);
+                if (payload?.type === "version-upload") {
+                  versionId = payload.version_id || versionId;
+                  previewUrl = payload.preview_url || previewUrl;
+                }
+              } catch {}
+            }
+          }
+
+          if (!versionId) {
+            process.stderr.write(`Failed to read version_id from ${outputPath}\n`);
+            process.exit(1);
+          }
+
+          fs.appendFileSync(githubOutput, `version_id=${versionId}\n`);
+          fs.appendFileSync(githubOutput, `preview_url=${previewUrl}\n`);
+          NODE
+
+      - name: Deploy uploaded backend version
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -n "${{ steps.backend_env.outputs.wrangler_env }}" ]]; then
+            pnpm exec wrangler versions deploy "${{ steps.backend_version.outputs.version_id }}@100" --env "${{ steps.backend_env.outputs.wrangler_env }}" --yes
+          else
+            pnpm exec wrangler versions deploy "${{ steps.backend_version.outputs.version_id }}@100" --yes
+          fi
+
+      - name: Apply backend triggers
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -n "${{ steps.backend_env.outputs.wrangler_env }}" ]]; then
+            pnpm exec wrangler triggers deploy --env "${{ steps.backend_env.outputs.wrangler_env }}"
+          else
+            pnpm exec wrangler triggers deploy
+          fi
+
+  comment-preview:
+    name: Comment Preview URLs
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false }}
+    runs-on: ubuntu-latest
+    needs:
+      - deploy-frontend
+      - deploy-backend
+    steps:
+      - name: Upsert preview URL comment
+        uses: actions/github-script@v7
+        env:
+          FRONTEND_PREVIEW: ${{ needs.deploy-frontend.outputs.preview_url }}
+          BACKEND_PREVIEW: ${{ needs.deploy-backend.outputs.preview_url }}
+          FRONTEND_PUBLIC: ${{ needs.deploy-frontend.outputs.public_url }}
+          BACKEND_PUBLIC: ${{ needs.deploy-backend.outputs.public_url }}
+        with:
+          script: |
+            const marker = "<!-- preview-urls -->";
+            const frontendPreview = process.env.FRONTEND_PREVIEW?.trim() || "(not available)";
+            const backendPreview = process.env.BACKEND_PREVIEW?.trim() || "(not available)";
+            const frontendPublic = process.env.FRONTEND_PUBLIC?.trim() || "(not set)";
+            const backendPublic = process.env.BACKEND_PUBLIC?.trim() || "(not set)";
+
+            const body = `${marker}
+            ## Preview URLs
+            - Frontend (workers.dev): ${frontendPreview}
+            - Backend (workers.dev): ${backendPreview}
+            - Frontend (custom domain): ${frontendPublic}
+            - Backend (custom domain): ${backendPublic}`;
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number,
+              per_page: 100,
+            });
+            const existing = comments.find((c) => c.user?.type === "Bot" && c.body?.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number,
+                body,
+              });
+            }
