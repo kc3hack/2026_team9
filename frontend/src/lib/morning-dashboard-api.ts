@@ -1,3 +1,5 @@
+import mockDashboard from "../data/morning-dashboard.json";
+
 export type CalendarEvent = {
 	title: string;
 	location?: string | null;
@@ -30,7 +32,6 @@ export type MorningDashboard = {
 	routine: MorningRoutineStep[];
 	overrides?: MorningRoutineOverride[];
 };
-import mockDashboard from "../data/morning-dashboard.json";
 
 export async function getMorningDashboard(
 	date?: string,
