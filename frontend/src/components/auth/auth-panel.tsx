@@ -6,6 +6,7 @@ import {
   Button,
   HStack,
   Link,
+  List,
   Stack,
   Text,
 } from "@chakra-ui/react";
@@ -13,6 +14,7 @@ import NextLink from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AuthApiError,
+  consumeAuthCallbackErrorFromUrl,
   getSession,
   type SessionResponse,
   signInWithGoogle,
@@ -51,23 +53,44 @@ function toErrorMessage(error: unknown, action: AuthAction): string {
 export function AuthPanel() {
   const [session, setSession] = useState<SessionResponse>(null);
   const [isPending, setIsPending] = useState(true);
+  const [sessionError, setSessionError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [oauthCallbackError, setOAuthCallbackError] = useState<string | null>(
+    null,
+  );
   const [isActionRunning, setIsActionRunning] = useState(false);
 
   const signedInUser = useMemo(() => session?.user ?? null, [session]);
+  const displayError = useMemo(
+    () => actionError ?? oauthCallbackError ?? sessionError,
+    [actionError, oauthCallbackError, sessionError],
+  );
 
   const refreshSession = useCallback(async () => {
     setIsPending(true);
     try {
       const nextSession = await getSession();
       setSession(nextSession);
-      setActionError(null);
+      setSessionError(null);
+      if (nextSession) {
+        setActionError(null);
+        setOAuthCallbackError(null);
+      }
     } catch (error) {
-      setActionError(toErrorMessage(error, "session"));
+      setSessionError(toErrorMessage(error, "session"));
       setSession(null);
     } finally {
       setIsPending(false);
     }
+  }, []);
+
+  useEffect(() => {
+    const callbackError = consumeAuthCallbackErrorFromUrl(window.location.href);
+    if (!callbackError) {
+      return;
+    }
+
+    setOAuthCallbackError(callbackError.message);
   }, []);
 
   useEffect(() => {
@@ -77,6 +100,8 @@ export function AuthPanel() {
 
   const handleSignIn = async () => {
     setActionError(null);
+    setSessionError(null);
+    setOAuthCallbackError(null);
     setIsActionRunning(true);
     try {
       await signInWithGoogle(window.location.href);
@@ -89,6 +114,7 @@ export function AuthPanel() {
 
   const handleSignOut = async () => {
     setActionError(null);
+    setSessionError(null);
     setIsActionRunning(true);
     try {
       await signOut();
@@ -135,6 +161,36 @@ export function AuthPanel() {
           </Text>
         )}
 
+        {!signedInUser ? (
+          <Box
+            borderWidth="1px"
+            borderRadius="xl"
+            borderColor="var(--app-border)"
+            p={4}
+          >
+            <Stack gap={2}>
+              <Text fontSize="sm" fontWeight="semibold">
+                権限許可後に実行される処理
+              </Text>
+              <List.Root gap={1} ps={4}>
+                <List.Item fontSize="sm" color="fg.muted">
+                  入力タスクを Workers AI で細分化します
+                </List.Item>
+                <List.Item fontSize="sm" color="fg.muted">
+                  細分化結果を Google Calendar へ予定として追加します
+                </List.Item>
+                <List.Item fontSize="sm" color="fg.muted">
+                  実行結果を D1 に保存し、画面へ反映します
+                </List.Item>
+              </List.Root>
+              <Text fontSize="xs" color="fg.muted">
+                Google Calendar
+                の「予定作成」と「このアプリが作成したカレンダー管理」の権限を利用します。
+              </Text>
+            </Stack>
+          </Box>
+        ) : null}
+
         <HStack gap={3}>
           {signedInUser ? (
             <Button
@@ -156,9 +212,9 @@ export function AuthPanel() {
           )}
         </HStack>
 
-        {actionError ? (
+        {displayError ? (
           <Text fontSize="sm" color="red.500">
-            {actionError}
+            {displayError}
           </Text>
         ) : null}
 

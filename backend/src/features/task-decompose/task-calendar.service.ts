@@ -13,6 +13,7 @@ const PRIMARY_CALENDAR_ID = "primary";
 const GOOGLE_CALENDAR_API_BASE = "https://www.googleapis.com/calendar/v3";
 const MIN_DURATION_MINUTES = 15;
 const BASE32HEX_ALPHABET = "0123456789abcdefghijklmnopqrstuv";
+const CALENDAR_REAUTH_MARKER = "REAUTH_REQUIRED_CALENDAR_SCOPE";
 
 type GoogleEventDateTime = {
   dateTime?: string;
@@ -26,6 +27,29 @@ type GoogleCalendarEventResponse = {
   start?: GoogleEventDateTime;
   end?: GoogleEventDateTime;
 };
+
+function toSingleLine(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function truncate(value: string, maxLength: number): string {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  return `${value.slice(0, Math.max(0, maxLength - 1))}…`;
+}
+
+function buildEventSummary(
+  subtaskTitle: string,
+  overallTaskName: string,
+  index: number,
+  totalCount: number,
+): string {
+  const normalizedSubtask = toSingleLine(subtaskTitle);
+  const normalizedOverall = truncate(toSingleLine(overallTaskName), 80);
+  return `[${index + 1}/${totalCount}] ${normalizedSubtask} | ${normalizedOverall}`;
+}
 
 function safeDate(value: string, fallback: Date): Date {
   const parsed = new Date(value);
@@ -99,6 +123,19 @@ async function readErrorMessage(response: Response): Promise<string> {
   return text;
 }
 
+function isCalendarPermissionError(status: number, message: string): boolean {
+  if (status === 401 || status === 403) {
+    return true;
+  }
+
+  const lower = message.toLowerCase();
+  return (
+    lower.includes("insufficient") ||
+    lower.includes("permission") ||
+    lower.includes("forbidden")
+  );
+}
+
 async function fetchExistingEvent(
   accessToken: string,
   calendarId: string,
@@ -165,7 +202,13 @@ async function insertEvent(
   }
 
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    const errorMessage = await readErrorMessage(response);
+    if (isCalendarPermissionError(response.status, errorMessage)) {
+      throw new Error(
+        `${CALENDAR_REAUTH_MARKER}: Google Calendar の権限が不足しています。Google で再ログインしてカレンダー権限を再許可してください。`,
+      );
+    }
+    throw new Error(errorMessage);
   }
 
   return (await response.json()) as GoogleCalendarEventResponse;
@@ -228,6 +271,7 @@ export async function createCalendarEvents(
   const calendarId = PRIMARY_CALENDAR_ID;
 
   const createdEvents: CalendarCreatedEvent[] = [];
+  const totalCount = Math.max(input.breakdown.subtasks.length, 1);
 
   for (const [index, subtask] of input.breakdown.subtasks.entries()) {
     const fallbackDueAt = new Date(Date.now() + (index + 1) * 60 * 60 * 1000);
@@ -238,7 +282,12 @@ export async function createCalendarEvents(
     );
     const startAt = new Date(dueAt.getTime() - durationMinutes * 60 * 1000);
     const eventId = await createStableEventId(input.workflowId, index);
-    const summary = subtask.title;
+    const summary = buildEventSummary(
+      subtask.title,
+      input.request.task,
+      index,
+      totalCount,
+    );
     const description = [
       `Original task: ${input.request.task}`,
       `Goal: ${input.breakdown.goal}`,

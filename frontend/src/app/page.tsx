@@ -17,7 +17,12 @@ import {
 import type { FormEvent } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AuthPanel } from "@/components/auth/auth-panel";
-import { AuthApiError, getSession, type SessionResponse } from "@/lib/auth-api";
+import {
+  AuthApiError,
+  getSession,
+  type SessionResponse,
+  signInWithGoogle,
+} from "@/lib/auth-api";
 import {
   getTaskWorkflowHistory,
   getTaskWorkflowStatus,
@@ -30,6 +35,7 @@ import {
 type RunPhase = "idle" | "starting" | "waiting" | "completed" | "failed";
 
 type ErrorAction = "start" | "status" | "history" | "session";
+const CALENDAR_REAUTH_MARKER = "REAUTH_REQUIRED_CALENDAR_SCOPE:";
 
 function fallbackErrorMessage(action: ErrorAction): string {
   if (action === "start") {
@@ -59,6 +65,27 @@ function toErrorMessage(error: unknown, action: ErrorAction): string {
   }
 
   return fallbackErrorMessage(action);
+}
+
+function needsCalendarReauth(rawMessage: string | null): boolean {
+  return Boolean(rawMessage?.includes(CALENDAR_REAUTH_MARKER));
+}
+
+function toDisplayErrorMessage(rawMessage: string | null): string | null {
+  if (!rawMessage) {
+    return null;
+  }
+
+  if (!needsCalendarReauth(rawMessage)) {
+    return rawMessage;
+  }
+
+  const message = rawMessage.replace(CALENDAR_REAUTH_MARKER, "").trim();
+  if (message.length > 0) {
+    return message;
+  }
+
+  return "Google Calendar の権限再許可が必要です。";
 }
 
 function formatDateTime(
@@ -161,9 +188,18 @@ export default function Home() {
   const [record, setRecord] = useState<WorkflowRecord | null>(null);
   const [history, setHistory] = useState<WorkflowRecord[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isReauthRunning, setIsReauthRunning] = useState(false);
   const [dotTick, setDotTick] = useState(0);
 
   const signedInUser = useMemo(() => session?.user ?? null, [session]);
+  const requiresCalendarReauth = useMemo(
+    () => needsCalendarReauth(errorMessage),
+    [errorMessage],
+  );
+  const displayErrorMessage = useMemo(
+    () => toDisplayErrorMessage(errorMessage),
+    [errorMessage],
+  );
   const statusLabel = useMemo(
     () => toStatusLabel(phase, workflowStatus, record),
     [phase, workflowStatus, record],
@@ -369,6 +405,19 @@ export default function Home() {
     setPhase("waiting");
   };
 
+  const handleCalendarReauth = async () => {
+    setIsReauthRunning(true);
+    try {
+      await signInWithGoogle(window.location.href);
+    } catch (error) {
+      setErrorMessage(toErrorMessage(error, "session"));
+      setIsReauthRunning(false);
+      return;
+    }
+
+    setIsReauthRunning(false);
+  };
+
   const waitingDots = ".".repeat(dotTick + 1);
   const breakdown = record?.llmOutput;
   const calendarResult = record?.calendarOutput;
@@ -502,10 +551,27 @@ export default function Home() {
                 </Text>
               ) : null}
 
-              {errorMessage ? (
+              {displayErrorMessage ? (
                 <Text fontSize="sm" color="red.500">
-                  {errorMessage}
+                  {displayErrorMessage}
                 </Text>
+              ) : null}
+
+              {requiresCalendarReauth ? (
+                <HStack gap={3} flexWrap="wrap">
+                  <Button
+                    size="sm"
+                    colorPalette="orange"
+                    variant="outline"
+                    onClick={() => void handleCalendarReauth()}
+                    loading={isReauthRunning}
+                  >
+                    Google権限を再認可
+                  </Button>
+                  <Text fontSize="xs" color="fg.muted">
+                    権限許可後に同じタスクを再実行してください。
+                  </Text>
+                </HStack>
               ) : null}
             </Stack>
           </Box>
