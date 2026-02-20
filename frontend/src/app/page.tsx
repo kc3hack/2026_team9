@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Avatar,
   Badge,
   Box,
   Button,
@@ -11,17 +12,11 @@ import {
   HStack,
   Input,
   List,
-  Progress,
   ProgressCircle,
-  Separator,
-  SimpleGrid,
   Stack,
-  Stat,
-  Steps,
   Tabs,
   Text,
   Textarea,
-  Timeline,
 } from "@chakra-ui/react";
 import type { FormEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -31,6 +26,7 @@ import {
   getSession,
   type SessionResponse,
   signInWithGoogle,
+  signOut,
 } from "@/lib/auth-api";
 import {
   getTaskWorkflowHistory,
@@ -42,62 +38,34 @@ import {
 } from "@/lib/task-workflow-api";
 
 type RunPhase = "idle" | "starting" | "waiting" | "completed" | "failed";
-type ErrorAction = "start" | "status" | "history" | "session";
-type FlowScreen = 0 | 1 | 2 | 3;
+type ErrorAction = "start" | "status" | "history" | "session" | "signOut";
+type ViewMode = "auth" | "compose" | "running" | "result";
 type TransitionDirection = "forward" | "backward";
 
-type FlowScreenMeta = {
-  title: string;
-  description: string;
+type StepItem = {
+  label: string;
 };
 
 const CALENDAR_REAUTH_MARKER = "REAUTH_REQUIRED_CALENDAR_SCOPE:";
 const DEFAULT_USER_TIMEZONE = "Asia/Tokyo";
-const FLOW_SCREENS: FlowScreenMeta[] = [
-  {
-    title: "認証",
-    description: "Googleログインと権限付与",
-  },
-  {
-    title: "入力",
-    description: "タスクと条件を設定",
-  },
-  {
-    title: "実行",
-    description: "Workflow の進行を確認",
-  },
-  {
-    title: "結果",
-    description: "分解結果と履歴を確認",
-  },
+const STEP_ITEMS: StepItem[] = [
+  { label: "認証" },
+  { label: "入力" },
+  { label: "実行" },
+  { label: "結果" },
 ];
-const WORKFLOW_TIMELINE = [
-  {
-    title: "Googleログイン",
-    description: "Calendar連携に必要な権限を許可",
-  },
-  {
-    title: "タスク細分化",
-    description: "Workers AIで実行可能なステップへ分解",
-  },
-  {
-    title: "カレンダー反映",
-    description: "Google Calendarへ予定を自動作成",
-  },
-  {
-    title: "保存と表示",
-    description: "D1保存後に結果画面へ反映",
-  },
-] as const;
 
-function clampFlowScreen(value: number): FlowScreen {
-  if (value <= 0) {
+function viewIndex(view: ViewMode): number {
+  if (view === "auth") {
     return 0;
   }
-  if (value >= FLOW_SCREENS.length - 1) {
-    return 3;
+  if (view === "compose") {
+    return 1;
   }
-  return value as FlowScreen;
+  if (view === "running") {
+    return 2;
+  }
+  return 3;
 }
 
 function fallbackErrorMessage(action: ErrorAction): string {
@@ -109,6 +77,9 @@ function fallbackErrorMessage(action: ErrorAction): string {
   }
   if (action === "history") {
     return "履歴の取得に失敗しました。";
+  }
+  if (action === "signOut") {
+    return "ログアウトに失敗しました。時間をおいて再試行してください。";
   }
   return "セッション状態の取得に失敗しました。";
 }
@@ -273,6 +244,22 @@ function toDeadlineIso(value: string): string | undefined {
   return parsed.toISOString();
 }
 
+function toInitials(name: string | null | undefined): string {
+  if (!name || name.trim().length === 0) {
+    return "GU";
+  }
+
+  const letters = name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .filter((part) => part.length > 0)
+    .join("");
+
+  return letters.length > 0 ? letters : "GU";
+}
+
 export default function Home() {
   const [session, setSession] = useState<SessionResponse>(null);
   const [isSessionLoading, setIsSessionLoading] = useState(true);
@@ -290,25 +277,17 @@ export default function Home() {
   const [history, setHistory] = useState<WorkflowRecord[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isReauthRunning, setIsReauthRunning] = useState(false);
+  const [isSignOutRunning, setIsSignOutRunning] = useState(false);
   const [dotTick, setDotTick] = useState(0);
 
-  const [activeScreen, setActiveScreen] = useState<FlowScreen>(0);
+  const [resultTab, setResultTab] = useState<"result" | "history">("result");
+  const [viewMode, setViewMode] = useState<ViewMode>("auth");
   const [transitionDirection, setTransitionDirection] =
     useState<TransitionDirection>("forward");
-  const [resultTab, setResultTab] = useState<"result" | "history">("result");
 
-  const previousPhaseRef = useRef<RunPhase>("idle");
-  const activeScreenRef = useRef<FlowScreen>(0);
+  const viewModeRef = useRef<ViewMode>("auth");
 
   const signedInUser = useMemo(() => session?.user ?? null, [session]);
-  const requiresCalendarReauth = useMemo(
-    () => needsCalendarReauth(errorMessage),
-    [errorMessage],
-  );
-  const displayErrorMessage = useMemo(
-    () => toDisplayErrorMessage(errorMessage),
-    [errorMessage],
-  );
   const statusLabel = useMemo(
     () => toStatusLabel(phase, workflowStatus, record),
     [phase, workflowStatus, record],
@@ -317,19 +296,26 @@ export default function Home() {
     () => toWorkflowProgress(phase, record, workflowStatus),
     [phase, record, workflowStatus],
   );
+  const requiresCalendarReauth = useMemo(
+    () => needsCalendarReauth(errorMessage),
+    [errorMessage],
+  );
+  const displayErrorMessage = useMemo(
+    () => toDisplayErrorMessage(errorMessage),
+    [errorMessage],
+  );
 
-  useEffect(() => {
-    activeScreenRef.current = activeScreen;
-  }, [activeScreen]);
-
-  const moveToScreen = useCallback((next: FlowScreen) => {
-    const previous = activeScreenRef.current;
-    if (previous === next) {
+  const setView = useCallback((nextView: ViewMode) => {
+    const previous = viewModeRef.current;
+    if (previous === nextView) {
       return;
     }
 
-    setTransitionDirection(next > previous ? "forward" : "backward");
-    setActiveScreen(next);
+    setTransitionDirection(
+      viewIndex(nextView) > viewIndex(previous) ? "forward" : "backward",
+    );
+    viewModeRef.current = nextView;
+    setViewMode(nextView);
   }, []);
 
   const refreshSession = useCallback(async () => {
@@ -457,86 +443,25 @@ export default function Home() {
   }, [workflowId, phase, refreshHistory]);
 
   useEffect(() => {
+    let nextView: ViewMode;
+
     if (!signedInUser) {
-      moveToScreen(0);
-      previousPhaseRef.current = phase;
-      return;
-    }
-
-    if (activeScreenRef.current === 0) {
-      moveToScreen(1);
-    }
-
-    const previous = previousPhaseRef.current;
-    if ((phase === "starting" || phase === "waiting") && previous !== phase) {
-      moveToScreen(2);
-    }
-
-    if ((phase === "completed" || phase === "failed") && previous !== phase) {
-      moveToScreen(3);
-      setResultTab("result");
-    }
-
-    previousPhaseRef.current = phase;
-  }, [signedInUser, phase, moveToScreen]);
-
-  const isScreenAvailable = useCallback(
-    (screen: FlowScreen): boolean => {
-      if (screen === 0) {
-        return true;
-      }
-
-      if (!signedInUser) {
-        return false;
-      }
-
-      if (screen === 1) {
-        return true;
-      }
-
-      if (screen === 2) {
-        return Boolean(workflowId || record || phase !== "idle");
-      }
-
-      return Boolean(record || history.length > 0 || phase !== "idle");
-    },
-    [history.length, phase, record, signedInUser, workflowId],
-  );
-
-  const previousAvailableScreen = useMemo(() => {
-    for (let index = activeScreen - 1; index >= 0; index -= 1) {
-      const candidate = clampFlowScreen(index);
-      if (isScreenAvailable(candidate)) {
-        return candidate;
-      }
-    }
-
-    return null;
-  }, [activeScreen, isScreenAvailable]);
-
-  const nextAvailableScreen = useMemo(() => {
-    for (
-      let index = activeScreen + 1;
-      index < FLOW_SCREENS.length;
-      index += 1
+      nextView = "auth";
+    } else if (phase === "starting" || phase === "waiting") {
+      nextView = "running";
+    } else if (
+      phase === "completed" ||
+      phase === "failed" ||
+      record?.status === "completed" ||
+      record?.status === "failed"
     ) {
-      const candidate = clampFlowScreen(index);
-      if (isScreenAvailable(candidate)) {
-        return candidate;
-      }
+      nextView = "result";
+    } else {
+      nextView = "compose";
     }
 
-    return null;
-  }, [activeScreen, isScreenAvailable]);
-
-  const handleStepChange = (step: number) => {
-    const next = clampFlowScreen(step);
-    if (!isScreenAvailable(next)) {
-      return;
-    }
-
-    moveToScreen(next);
-  };
+    setView(nextView);
+  }, [phase, record?.status, setView, signedInUser]);
 
   const handleSubmit = async (event: FormEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -545,7 +470,6 @@ export default function Home() {
       setErrorMessage(
         "実行にはログインが必要です。Google でログインしてください。",
       );
-      moveToScreen(0);
       return;
     }
 
@@ -564,7 +488,6 @@ export default function Home() {
 
     setPhase("starting");
     setErrorMessage(null);
-    moveToScreen(2);
 
     try {
       const response = await startTaskWorkflow({
@@ -581,13 +504,11 @@ export default function Home() {
 
       if (response.record?.status === "completed") {
         setPhase("completed");
-        moveToScreen(3);
       } else if (response.record?.status === "failed") {
         setPhase("failed");
         setErrorMessage(
           response.record.errorMessage ?? "Workflow が失敗しました。",
         );
-        moveToScreen(3);
       } else {
         setPhase("waiting");
       }
@@ -596,7 +517,6 @@ export default function Home() {
     } catch (error) {
       setPhase("failed");
       setErrorMessage(toErrorMessage(error, "start"));
-      moveToScreen(3);
     }
   };
 
@@ -609,19 +529,43 @@ export default function Home() {
 
     if (item.status === "completed") {
       setPhase("completed");
-      moveToScreen(3);
       return;
     }
 
     if (item.status === "failed") {
       setPhase("failed");
       setErrorMessage(item.errorMessage ?? "Workflow が失敗しました。");
-      moveToScreen(3);
       return;
     }
 
     setPhase("waiting");
-    moveToScreen(2);
+  };
+
+  const handleStartNewTask = () => {
+    setPhase("idle");
+    setWorkflowId(null);
+    setWorkflowStatus(null);
+    setRecord(null);
+    setErrorMessage(null);
+    setResultTab("result");
+  };
+
+  const handleSignOut = async () => {
+    setIsSignOutRunning(true);
+    try {
+      await signOut();
+      setSession(null);
+      setHistory([]);
+      setTask("");
+      setContext("");
+      setDeadline("");
+      setMaxSteps("6");
+      handleStartNewTask();
+    } catch (error) {
+      setErrorMessage(toErrorMessage(error, "signOut"));
+    } finally {
+      setIsSignOutRunning(false);
+    }
   };
 
   const handleCalendarReauth = async () => {
@@ -637,574 +581,124 @@ export default function Home() {
     setIsReauthRunning(false);
   };
 
+  const currentStepIndex = viewIndex(viewMode);
   const waitingDots = ".".repeat(dotTick + 1);
   const breakdown = record?.llmOutput;
   const calendarResult = record?.calendarOutput;
 
   const screenBody = (() => {
-    if (activeScreen === 0) {
+    if (viewMode === "auth") {
       return (
-        <Stack gap={6}>
+        <Stack gap={5}>
           <Text color="fg.muted" fontSize="sm">
-            この画面で認証を完了すると、タスク分解からGoogle Calendar反映までを
-            ワンフローで実行できます。
+            まずGoogleでログインし、カレンダー連携権限を許可してください。
+            認証後はタスク入力画面に進みます。
           </Text>
-
-          <SimpleGrid columns={{ base: 1, lg: 2 }} gap={4}>
-            <Card.Root variant="outline" bg="var(--app-surface-soft)">
-              <Card.Header pb={2}>
-                <Card.Title fontSize="md">実行フロー</Card.Title>
-                <Card.Description>
-                  認証後は次の順で処理が進行します
-                </Card.Description>
-              </Card.Header>
-              <Card.Body>
-                <Timeline.Root>
-                  {WORKFLOW_TIMELINE.map((item, index) => (
-                    <Timeline.Item key={item.title}>
-                      <Timeline.Separator>
-                        <Timeline.Indicator>{index + 1}</Timeline.Indicator>
-                        {index < WORKFLOW_TIMELINE.length - 1 ? (
-                          <Timeline.Connector />
-                        ) : null}
-                      </Timeline.Separator>
-                      <Timeline.Content>
-                        <Timeline.Title>{item.title}</Timeline.Title>
-                        <Timeline.Description>
-                          {item.description}
-                        </Timeline.Description>
-                      </Timeline.Content>
-                    </Timeline.Item>
-                  ))}
-                </Timeline.Root>
-              </Card.Body>
-            </Card.Root>
-
-            <Card.Root variant="outline" bg="var(--app-surface-soft)">
-              <Card.Header pb={2}>
-                <Card.Title fontSize="md">現在の状態</Card.Title>
-                <Card.Description>
-                  ログイン状態と実行対象の概要
-                </Card.Description>
-              </Card.Header>
-              <Card.Body>
-                <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
-                  <Stat.Root>
-                    <Stat.Label>セッション</Stat.Label>
-                    <Stat.ValueText>
-                      {isSessionLoading
-                        ? "確認中"
-                        : signedInUser
-                          ? "ログイン済み"
-                          : "未ログイン"}
-                    </Stat.ValueText>
-                    <Stat.HelpText>
-                      {signedInUser
-                        ? signedInUser.email
-                        : "Googleログインが必要です"}
-                    </Stat.HelpText>
-                  </Stat.Root>
-                  <Stat.Root>
-                    <Stat.Label>最終ステータス</Stat.Label>
-                    <Stat.ValueText>{statusLabel}</Stat.ValueText>
-                    <Stat.HelpText>
-                      {workflowId ? `Workflow: ${workflowId}` : "未実行"}
-                    </Stat.HelpText>
-                  </Stat.Root>
-                </SimpleGrid>
-              </Card.Body>
-            </Card.Root>
-          </SimpleGrid>
-
           <AuthPanel />
-
-          <HStack justify="end">
-            <Button
-              colorPalette="teal"
-              variant="outline"
-              onClick={() => moveToScreen(1)}
-              disabled={!signedInUser}
-            >
-              タスク入力へ進む
-            </Button>
-          </HStack>
         </Stack>
       );
     }
 
-    if (activeScreen === 1) {
+    if (viewMode === "compose") {
       return (
-        <Box as="form" onSubmit={handleSubmit}>
-          <Stack gap={5}>
-            <SimpleGrid columns={{ base: 1, md: 3 }} gap={3}>
-              <Card.Root variant="subtle" bg="var(--app-surface-soft)">
-                <Card.Body py={4}>
-                  <Stat.Root>
-                    <Stat.Label>タイムゾーン</Stat.Label>
-                    <Stat.ValueText fontSize="md">
-                      {Intl.DateTimeFormat().resolvedOptions().timeZone ??
-                        DEFAULT_USER_TIMEZONE}
-                    </Stat.ValueText>
-                  </Stat.Root>
-                </Card.Body>
-              </Card.Root>
-
-              <Card.Root variant="subtle" bg="var(--app-surface-soft)">
-                <Card.Body py={4}>
-                  <Stat.Root>
-                    <Stat.Label>最大ステップ</Stat.Label>
-                    <Stat.ValueText fontSize="md">{maxSteps}</Stat.ValueText>
-                  </Stat.Root>
-                </Card.Body>
-              </Card.Root>
-
-              <Card.Root variant="subtle" bg="var(--app-surface-soft)">
-                <Card.Body py={4}>
-                  <Stat.Root>
-                    <Stat.Label>実行状態</Stat.Label>
-                    <Stat.ValueText fontSize="md">{statusLabel}</Stat.ValueText>
-                  </Stat.Root>
-                </Card.Body>
-              </Card.Root>
-            </SimpleGrid>
-
-            <Field.Root required>
-              <Field.Label>細分化したいタスク</Field.Label>
-              <Textarea
-                value={task}
-                onChange={(event) => setTask(event.target.value)}
-                placeholder="例: ハッカソン発表までに、プロトタイプを提出可能な状態にする"
-                minH="140px"
-              />
-              <Field.HelperText>
-                締切・提出形式・評価基準など、判定条件があれば本文に含めてください。
-              </Field.HelperText>
-            </Field.Root>
-
-            <Field.Root>
-              <Field.Label>補足コンテキスト（任意）</Field.Label>
-              <Textarea
-                value={context}
-                onChange={(event) => setContext(event.target.value)}
-                placeholder="例: 3人チーム、担当はフロント中心、毎日21時以降に作業"
-                minH="96px"
-              />
-            </Field.Root>
-
-            <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
-              <Field.Root>
-                <Field.Label>最終期限（任意）</Field.Label>
-                <Input
-                  type="datetime-local"
-                  value={deadline}
-                  onChange={(event) => setDeadline(event.target.value)}
+        <Stack gap={5}>
+          <Box as="form" onSubmit={handleSubmit}>
+            <Stack gap={4}>
+              <Field.Root required>
+                <Field.Label>細分化したいタスク</Field.Label>
+                <Textarea
+                  value={task}
+                  onChange={(event) => setTask(event.target.value)}
+                  placeholder="例: ハッカソン発表までに、プロトタイプを提出可能な状態にする"
+                  minH="140px"
                 />
-                <Field.HelperText>
-                  未入力でも、タスク本文と補足から期限を推測して分解します。
-                </Field.HelperText>
               </Field.Root>
 
               <Field.Root>
-                <Field.Label>最大ステップ数</Field.Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={12}
-                  value={maxSteps}
-                  onChange={(event) => setMaxSteps(event.target.value)}
+                <Field.Label>補足コンテキスト（任意）</Field.Label>
+                <Textarea
+                  value={context}
+                  onChange={(event) => setContext(event.target.value)}
+                  placeholder="例: 3人チーム、担当はフロント中心、毎日21時以降に作業"
+                  minH="96px"
                 />
               </Field.Root>
-            </SimpleGrid>
 
-            {workflowId ? (
-              <Text fontSize="xs" color="fg.muted">
-                最新 Workflow ID: {workflowId}
-              </Text>
-            ) : null}
+              <HStack align="start" gap={4} flexWrap="wrap">
+                <Field.Root flex="1" minW={{ base: "100%", md: "260px" }}>
+                  <Field.Label>最終期限（任意）</Field.Label>
+                  <Input
+                    type="datetime-local"
+                    value={deadline}
+                    onChange={(event) => setDeadline(event.target.value)}
+                  />
+                  <Field.HelperText>
+                    未入力でも、本文と文脈から期限を推測して分解します。
+                  </Field.HelperText>
+                </Field.Root>
 
-            {displayErrorMessage ? (
-              <Text fontSize="sm" color="red.500">
-                {displayErrorMessage}
-              </Text>
-            ) : null}
-
-            {requiresCalendarReauth ? (
-              <HStack gap={3} flexWrap="wrap">
-                <Button
-                  size="sm"
-                  colorPalette="orange"
-                  variant="outline"
-                  onClick={() => void handleCalendarReauth()}
-                  loading={isReauthRunning}
-                >
-                  Google権限を再認可
-                </Button>
-                <Text fontSize="xs" color="fg.muted">
-                  権限許可後に同じタスクを再実行してください。
-                </Text>
+                <Field.Root w={{ base: "100%", md: "160px" }}>
+                  <Field.Label>最大ステップ数</Field.Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={12}
+                    value={maxSteps}
+                    onChange={(event) => setMaxSteps(event.target.value)}
+                  />
+                </Field.Root>
               </HStack>
-            ) : null}
 
-            <HStack gap={3} justify="space-between" flexWrap="wrap">
-              <Text fontSize="sm" color="fg.muted">
-                {signedInUser
-                  ? `ログイン中: ${signedInUser.email}`
-                  : "ログインすると実行できます"}
-              </Text>
-              <HStack gap={2}>
-                <Button
-                  variant="outline"
-                  onClick={() => moveToScreen(2)}
-                  disabled={!workflowId && phase === "idle"}
-                >
-                  実行状況を見る
-                </Button>
+              {displayErrorMessage ? (
+                <Text fontSize="sm" color="red.500">
+                  {displayErrorMessage}
+                </Text>
+              ) : null}
+
+              {requiresCalendarReauth ? (
+                <HStack gap={3} flexWrap="wrap">
+                  <Button
+                    size="sm"
+                    colorPalette="orange"
+                    variant="outline"
+                    onClick={() => void handleCalendarReauth()}
+                    loading={isReauthRunning}
+                  >
+                    Google権限を再認可
+                  </Button>
+                  <Text fontSize="xs" color="fg.muted">
+                    権限許可後に同じタスクを再実行してください。
+                  </Text>
+                </HStack>
+              ) : null}
+
+              <HStack justify="end">
                 <Button
                   colorPalette="teal"
                   type="submit"
                   loading={phase === "starting"}
                   disabled={phase === "waiting" || isSessionLoading}
                 >
-                  {phase === "waiting" ? "実行中" : "細分化を開始"}
+                  細分化を開始
                 </Button>
               </HStack>
-            </HStack>
-          </Stack>
-        </Box>
-      );
-    }
+            </Stack>
+          </Box>
 
-    if (activeScreen === 2) {
-      return (
-        <Stack gap={5}>
-          <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
-            <Card.Root variant="outline" bg="var(--app-surface-soft)">
-              <Card.Body>
-                <Stack align="center" textAlign="center" gap={4}>
-                  <ProgressCircle.Root
-                    value={workflowProgress}
-                    colorPalette={phase === "failed" ? "red" : "teal"}
-                    size="lg"
-                  >
-                    <ProgressCircle.Circle>
-                      <ProgressCircle.Track />
-                      <ProgressCircle.Range />
-                    </ProgressCircle.Circle>
-                    <ProgressCircle.ValueText>
-                      {workflowProgress}%
-                    </ProgressCircle.ValueText>
-                  </ProgressCircle.Root>
-
-                  <Stack gap={1}>
-                    <Heading size="md">ワークフロー実行中{waitingDots}</Heading>
-                    <Text fontSize="sm" color="fg.muted">
-                      ステータスを定期確認し、D1保存後に結果へ切り替えます。
-                    </Text>
-                  </Stack>
-
-                  <HStack gap={2} flexWrap="wrap" justify="center">
-                    <Badge colorPalette="blue">
-                      runtime: {workflowStatus?.status ?? "running"}
-                    </Badge>
-                    <Badge colorPalette="teal">
-                      record: {record?.status ?? "running"}
-                    </Badge>
-                  </HStack>
-                </Stack>
-              </Card.Body>
-            </Card.Root>
-
+          {history.length > 0 ? (
             <Card.Root variant="outline" bg="var(--app-surface-soft)">
               <Card.Header pb={2}>
-                <Card.Title fontSize="md">進行チェックポイント</Card.Title>
+                <Card.Title fontSize="md">最近の履歴</Card.Title>
               </Card.Header>
               <Card.Body>
-                <Timeline.Root>
-                  {[
-                    { key: "queued", label: "キュー投入" },
-                    { key: "running", label: "AIで細分化" },
-                    { key: "calendar_syncing", label: "カレンダー反映" },
-                    { key: "completed", label: "保存完了" },
-                  ].map((item, index) => {
-                    const currentStatus = record?.status;
-                    const isCurrent = currentStatus === item.key;
-                    const isDone =
-                      item.key === "queued"
-                        ? Boolean(currentStatus)
-                        : item.key === "running"
-                          ? currentStatus === "running" ||
-                            currentStatus === "calendar_syncing" ||
-                            currentStatus === "completed"
-                          : item.key === "calendar_syncing"
-                            ? currentStatus === "calendar_syncing" ||
-                              currentStatus === "completed"
-                            : currentStatus === "completed";
-
-                    return (
-                      <Timeline.Item key={item.key}>
-                        <Timeline.Separator>
-                          <Timeline.Indicator
-                            bg={
-                              isCurrent
-                                ? "teal.solid"
-                                : isDone
-                                  ? "teal.subtle"
-                                  : "bg.subtle"
-                            }
-                            color={isCurrent ? "white" : "fg"}
-                          >
-                            {index + 1}
-                          </Timeline.Indicator>
-                          {index < 3 ? <Timeline.Connector /> : null}
-                        </Timeline.Separator>
-                        <Timeline.Content>
-                          <Timeline.Title>{item.label}</Timeline.Title>
-                          <Timeline.Description>
-                            {isCurrent ? "実行中" : isDone ? "完了" : "待機"}
-                          </Timeline.Description>
-                        </Timeline.Content>
-                      </Timeline.Item>
-                    );
-                  })}
-                </Timeline.Root>
-              </Card.Body>
-            </Card.Root>
-          </SimpleGrid>
-
-          <Progress.Root
-            value={workflowProgress}
-            colorPalette={phase === "failed" ? "red" : "teal"}
-            size="lg"
-            borderRadius="full"
-          >
-            <Progress.Track>
-              <Progress.Range />
-            </Progress.Track>
-          </Progress.Root>
-
-          {displayErrorMessage ? (
-            <Text fontSize="sm" color="red.500">
-              {displayErrorMessage}
-            </Text>
-          ) : null}
-
-          {requiresCalendarReauth ? (
-            <HStack gap={3} flexWrap="wrap">
-              <Button
-                size="sm"
-                colorPalette="orange"
-                variant="outline"
-                onClick={() => void handleCalendarReauth()}
-                loading={isReauthRunning}
-              >
-                Google権限を再認可
-              </Button>
-              <Text fontSize="xs" color="fg.muted">
-                再認可後に再実行してください。
-              </Text>
-            </HStack>
-          ) : null}
-
-          <HStack justify="space-between" flexWrap="wrap">
-            <Text fontSize="xs" color="fg.muted">
-              {workflowId ? `Workflow ID: ${workflowId}` : "Workflow未開始"}
-            </Text>
-            <Button variant="outline" onClick={() => moveToScreen(3)}>
-              結果画面へ
-            </Button>
-          </HStack>
-        </Stack>
-      );
-    }
-
-    return (
-      <Tabs.Root
-        value={resultTab}
-        onValueChange={(details) => {
-          if (details.value === "result" || details.value === "history") {
-            setResultTab(details.value);
-          }
-        }}
-      >
-        <Tabs.List mb={4}>
-          <Tabs.Trigger value="result">分解結果</Tabs.Trigger>
-          <Tabs.Trigger value="history">実行履歴</Tabs.Trigger>
-        </Tabs.List>
-
-        <Tabs.Content value="result">
-          {breakdown ? (
-            <Stack gap={5}>
-              <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
-                <Card.Root variant="outline" bg="var(--app-surface-soft)">
-                  <Card.Header pb={2}>
-                    <Card.Title fontSize="md">目標</Card.Title>
-                  </Card.Header>
-                  <Card.Body pt={0}>
-                    <Text color="fg.muted">{breakdown.goal}</Text>
-                  </Card.Body>
-                </Card.Root>
-
-                <Card.Root variant="outline" bg="var(--app-surface-soft)">
-                  <Card.Header pb={2}>
-                    <Card.Title fontSize="md">要約</Card.Title>
-                  </Card.Header>
-                  <Card.Body pt={0}>
-                    <Text color="fg.muted">{breakdown.summary}</Text>
-                  </Card.Body>
-                </Card.Root>
-              </SimpleGrid>
-
-              <Card.Root variant="outline" bg="var(--app-surface-soft)">
-                <Card.Header pb={2}>
-                  <Card.Title fontSize="md">サブタスク</Card.Title>
-                  <Card.Description>
-                    期限順に並べた実行ステップ
-                  </Card.Description>
-                </Card.Header>
-                <Card.Body>
-                  <Timeline.Root>
-                    {breakdown.subtasks.map((subtask, index) => (
-                      <Timeline.Item key={`${subtask.title}-${subtask.dueAt}`}>
-                        <Timeline.Separator>
-                          <Timeline.Indicator>{index + 1}</Timeline.Indicator>
-                          {index < breakdown.subtasks.length - 1 ? (
-                            <Timeline.Connector />
-                          ) : null}
-                        </Timeline.Separator>
-                        <Timeline.Content>
-                          <Timeline.Title>{subtask.title}</Timeline.Title>
-                          <Timeline.Description>
-                            <Stack gap={1}>
-                              <Text>{subtask.description}</Text>
-                              <HStack gap={2} flexWrap="wrap">
-                                <Badge colorPalette="blue" variant="subtle">
-                                  期限:{" "}
-                                  {formatDateTime(
-                                    subtask.dueAt,
-                                    record?.timezone,
-                                  )}
-                                </Badge>
-                                <Badge colorPalette="teal" variant="subtle">
-                                  {subtask.durationMinutes} 分
-                                </Badge>
-                              </HStack>
-                            </Stack>
-                          </Timeline.Description>
-                        </Timeline.Content>
-                      </Timeline.Item>
-                    ))}
-                  </Timeline.Root>
-                </Card.Body>
-              </Card.Root>
-
-              {calendarResult ? (
-                <Card.Root variant="outline" bg="var(--app-surface-soft)">
-                  <Card.Header pb={2}>
-                    <Card.Title fontSize="md">
-                      Google Calendar 反映結果
-                    </Card.Title>
-                    <Card.Description>
-                      作成された予定 ({calendarResult.createdEvents.length} 件)
-                    </Card.Description>
-                  </Card.Header>
-                  <Card.Body>
-                    <List.Root gap={3}>
-                      {calendarResult.createdEvents.map((eventItem) => (
-                        <List.Item key={eventItem.id}>
-                          <HStack justify="space-between" align="start" gap={3}>
-                            <Stack gap={1}>
-                              <Text fontWeight="medium">
-                                {eventItem.summary}
-                              </Text>
-                              <Text fontSize="sm" color="fg.muted">
-                                {formatDateTime(
-                                  eventItem.startAt,
-                                  calendarResult.timezone,
-                                )}{" "}
-                                -{" "}
-                                {formatDateTime(
-                                  eventItem.endAt,
-                                  calendarResult.timezone,
-                                )}
-                              </Text>
-                            </Stack>
-                            {eventItem.htmlLink ? (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  window.open(
-                                    eventItem.htmlLink ?? "",
-                                    "_blank",
-                                    "noopener,noreferrer",
-                                  );
-                                }}
-                              >
-                                カレンダーを開く
-                              </Button>
-                            ) : (
-                              <Badge colorPalette="gray">リンクなし</Badge>
-                            )}
-                          </HStack>
-                        </List.Item>
-                      ))}
-                    </List.Root>
-                  </Card.Body>
-                </Card.Root>
-              ) : null}
-
-              {breakdown.assumptions.length > 0 ? (
-                <Card.Root variant="outline" bg="var(--app-surface-soft)">
-                  <Card.Header pb={2}>
-                    <Card.Title fontSize="md">前提 / メモ</Card.Title>
-                  </Card.Header>
-                  <Card.Body>
-                    <List.Root gap={1}>
-                      {breakdown.assumptions.map((item) => (
-                        <List.Item key={item}>{item}</List.Item>
-                      ))}
-                    </List.Root>
-                  </Card.Body>
-                </Card.Root>
-              ) : null}
-            </Stack>
-          ) : (
-            <Card.Root variant="outline" bg="var(--app-surface-soft)">
-              <Card.Body>
-                <Text fontSize="sm" color="fg.muted">
-                  まだ分解結果はありません。タスクを実行するとここに表示されます。
-                </Text>
-              </Card.Body>
-            </Card.Root>
-          )}
-        </Tabs.Content>
-
-        <Tabs.Content value="history">
-          <Card.Root variant="outline" bg="var(--app-surface-soft)">
-            <Card.Header pb={2}>
-              <HStack justify="space-between" flexWrap="wrap">
-                <Card.Title fontSize="md">最近の実行履歴</Card.Title>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => void refreshHistory()}
-                >
-                  更新
-                </Button>
-              </HStack>
-            </Card.Header>
-            <Card.Body>
-              {history.length === 0 ? (
-                <Text fontSize="sm" color="fg.muted">
-                  まだ履歴はありません。
-                </Text>
-              ) : (
-                <List.Root gap={3}>
-                  {history.map((item) => (
+                <List.Root gap={2}>
+                  {history.slice(0, 3).map((item) => (
                     <List.Item key={item.workflowId}>
                       <HStack justify="space-between" align="start" gap={3}>
-                        <Stack gap={1}>
-                          <Text fontWeight="medium">{item.taskInput}</Text>
+                        <Stack gap={0.5}>
+                          <Text fontSize="sm" lineClamp={2}>
+                            {item.taskInput}
+                          </Text>
                           <Text fontSize="xs" color="fg.muted">
                             {formatDateTime(item.createdAt, item.timezone)} /{" "}
                             {item.status}
@@ -1221,11 +715,263 @@ export default function Home() {
                     </List.Item>
                   ))}
                 </List.Root>
-              )}
-            </Card.Body>
-          </Card.Root>
-        </Tabs.Content>
-      </Tabs.Root>
+              </Card.Body>
+            </Card.Root>
+          ) : null}
+        </Stack>
+      );
+    }
+
+    if (viewMode === "running") {
+      return (
+        <Stack
+          align="center"
+          textAlign="center"
+          gap={5}
+          py={{ base: 4, md: 8 }}
+        >
+          <ProgressCircle.Root
+            value={workflowProgress}
+            size="xl"
+            colorPalette={phase === "failed" ? "red" : "teal"}
+          >
+            <ProgressCircle.Circle>
+              <ProgressCircle.Track />
+              <ProgressCircle.Range />
+            </ProgressCircle.Circle>
+            <ProgressCircle.ValueText>
+              {workflowProgress}%
+            </ProgressCircle.ValueText>
+          </ProgressCircle.Root>
+
+          <Stack gap={1}>
+            <Heading size="md">ワークフロー実行中{waitingDots}</Heading>
+            <Text color="fg.muted" fontSize="sm">
+              完了したら自動で結果画面へ切り替わります。
+            </Text>
+          </Stack>
+
+          <Badge colorPalette={phase === "failed" ? "red" : "teal"}>
+            {statusLabel}
+          </Badge>
+
+          {displayErrorMessage ? (
+            <Text fontSize="sm" color="red.500">
+              {displayErrorMessage}
+            </Text>
+          ) : null}
+
+          {requiresCalendarReauth ? (
+            <Button
+              size="sm"
+              colorPalette="orange"
+              variant="outline"
+              onClick={() => void handleCalendarReauth()}
+              loading={isReauthRunning}
+            >
+              Google権限を再認可
+            </Button>
+          ) : null}
+        </Stack>
+      );
+    }
+
+    return (
+      <Stack gap={5}>
+        <HStack justify="space-between" flexWrap="wrap" gap={3}>
+          <Badge colorPalette={phase === "failed" ? "red" : "green"}>
+            {statusLabel}
+          </Badge>
+          <Button variant="outline" onClick={handleStartNewTask}>
+            新しいタスクを入力
+          </Button>
+        </HStack>
+
+        <Tabs.Root
+          value={resultTab}
+          onValueChange={(details) => {
+            if (details.value === "result" || details.value === "history") {
+              setResultTab(details.value);
+            }
+          }}
+        >
+          <Tabs.List>
+            <Tabs.Trigger value="result">分解結果</Tabs.Trigger>
+            <Tabs.Trigger value="history">実行履歴</Tabs.Trigger>
+          </Tabs.List>
+
+          <Tabs.Content value="result" pt={4}>
+            {breakdown ? (
+              <Stack gap={4}>
+                <Card.Root variant="outline" bg="var(--app-surface-soft)">
+                  <Card.Body>
+                    <Stack gap={2}>
+                      <Text fontWeight="semibold">目標</Text>
+                      <Text color="fg.muted">{breakdown.goal}</Text>
+                      <Text fontWeight="semibold" pt={2}>
+                        要約
+                      </Text>
+                      <Text color="fg.muted">{breakdown.summary}</Text>
+                    </Stack>
+                  </Card.Body>
+                </Card.Root>
+
+                <Card.Root variant="outline" bg="var(--app-surface-soft)">
+                  <Card.Header pb={2}>
+                    <Card.Title fontSize="md">サブタスク</Card.Title>
+                  </Card.Header>
+                  <Card.Body>
+                    <List.Root gap={3}>
+                      {breakdown.subtasks.map((subtask) => (
+                        <List.Item key={`${subtask.title}-${subtask.dueAt}`}>
+                          <Stack gap={1}>
+                            <Text fontWeight="medium">{subtask.title}</Text>
+                            <Text fontSize="sm" color="fg.muted">
+                              {subtask.description}
+                            </Text>
+                            <HStack gap={2} flexWrap="wrap">
+                              <Badge colorPalette="blue" variant="subtle">
+                                期限:{" "}
+                                {formatDateTime(
+                                  subtask.dueAt,
+                                  record?.timezone,
+                                )}
+                              </Badge>
+                              <Badge colorPalette="teal" variant="subtle">
+                                {subtask.durationMinutes} 分
+                              </Badge>
+                            </HStack>
+                          </Stack>
+                        </List.Item>
+                      ))}
+                    </List.Root>
+                  </Card.Body>
+                </Card.Root>
+
+                {calendarResult ? (
+                  <Card.Root variant="outline" bg="var(--app-surface-soft)">
+                    <Card.Header pb={2}>
+                      <Card.Title fontSize="md">
+                        Google Calendar 反映結果
+                      </Card.Title>
+                    </Card.Header>
+                    <Card.Body>
+                      <List.Root gap={2}>
+                        {calendarResult.createdEvents.map((eventItem) => (
+                          <List.Item key={eventItem.id}>
+                            <HStack
+                              justify="space-between"
+                              align="start"
+                              gap={3}
+                            >
+                              <Stack gap={1}>
+                                <Text fontWeight="medium">
+                                  {eventItem.summary}
+                                </Text>
+                                <Text fontSize="sm" color="fg.muted">
+                                  {formatDateTime(
+                                    eventItem.startAt,
+                                    calendarResult.timezone,
+                                  )}{" "}
+                                  -{" "}
+                                  {formatDateTime(
+                                    eventItem.endAt,
+                                    calendarResult.timezone,
+                                  )}
+                                </Text>
+                              </Stack>
+                              {eventItem.htmlLink ? (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    window.open(
+                                      eventItem.htmlLink ?? "",
+                                      "_blank",
+                                      "noopener,noreferrer",
+                                    );
+                                  }}
+                                >
+                                  開く
+                                </Button>
+                              ) : (
+                                <Badge colorPalette="gray">リンクなし</Badge>
+                              )}
+                            </HStack>
+                          </List.Item>
+                        ))}
+                      </List.Root>
+                    </Card.Body>
+                  </Card.Root>
+                ) : null}
+
+                {breakdown.assumptions.length > 0 ? (
+                  <Card.Root variant="outline" bg="var(--app-surface-soft)">
+                    <Card.Header pb={2}>
+                      <Card.Title fontSize="md">前提 / メモ</Card.Title>
+                    </Card.Header>
+                    <Card.Body>
+                      <List.Root gap={1}>
+                        {breakdown.assumptions.map((item) => (
+                          <List.Item key={item}>{item}</List.Item>
+                        ))}
+                      </List.Root>
+                    </Card.Body>
+                  </Card.Root>
+                ) : null}
+              </Stack>
+            ) : (
+              <Card.Root variant="outline" bg="var(--app-surface-soft)">
+                <Card.Body>
+                  <Text fontSize="sm" color="fg.muted">
+                    結果がありません。失敗した場合は履歴から詳細を確認してください。
+                  </Text>
+                  {displayErrorMessage ? (
+                    <Text fontSize="sm" color="red.500" mt={2}>
+                      {displayErrorMessage}
+                    </Text>
+                  ) : null}
+                </Card.Body>
+              </Card.Root>
+            )}
+          </Tabs.Content>
+
+          <Tabs.Content value="history" pt={4}>
+            <Card.Root variant="outline" bg="var(--app-surface-soft)">
+              <Card.Body>
+                {history.length === 0 ? (
+                  <Text fontSize="sm" color="fg.muted">
+                    まだ履歴はありません。
+                  </Text>
+                ) : (
+                  <List.Root gap={3}>
+                    {history.map((item) => (
+                      <List.Item key={item.workflowId}>
+                        <HStack justify="space-between" align="start" gap={3}>
+                          <Stack gap={0.5}>
+                            <Text fontWeight="medium">{item.taskInput}</Text>
+                            <Text fontSize="xs" color="fg.muted">
+                              {formatDateTime(item.createdAt, item.timezone)} /{" "}
+                              {item.status}
+                            </Text>
+                          </Stack>
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            onClick={() => handleSelectHistory(item)}
+                          >
+                            表示
+                          </Button>
+                        </HStack>
+                      </List.Item>
+                    ))}
+                  </List.Root>
+                )}
+              </Card.Body>
+            </Card.Root>
+          </Tabs.Content>
+        </Tabs.Root>
+      </Stack>
     );
   })();
 
@@ -1241,7 +987,7 @@ export default function Home() {
       <Box className="app-orb app-orb--one" />
       <Box className="app-orb app-orb--two" />
 
-      <Container maxW="6xl" position="relative" zIndex={1}>
+      <Container maxW="5xl" position="relative" zIndex={1}>
         <Stack gap={6}>
           <HStack gap={3} flexWrap="wrap">
             <Badge colorPalette="teal" size="md">
@@ -1260,9 +1006,54 @@ export default function Home() {
               タスク細分化ワークフロー
             </Heading>
             <Text fontSize="lg" color="fg.muted">
-              1画面ずつ進めるステップ形式で、入力から反映までを見える化します。
+              必要な情報だけに絞った4画面フローで、入力から結果確認まで進めます。
             </Text>
           </Stack>
+
+          {viewMode !== "auth" ? (
+            <HStack justify="space-between" flexWrap="wrap" gap={3}>
+              <Badge colorPalette="teal" variant="subtle">
+                {STEP_ITEMS[currentStepIndex].label}
+              </Badge>
+
+              <HStack gap={2}>
+                <Avatar.Root size="xs">
+                  {signedInUser?.image ? (
+                    <Avatar.Image
+                      src={signedInUser.image}
+                      alt={signedInUser.name}
+                    />
+                  ) : null}
+                  <Avatar.Fallback>
+                    {toInitials(signedInUser?.name)}
+                  </Avatar.Fallback>
+                </Avatar.Root>
+                <Text fontSize="sm" color="fg.muted">
+                  {signedInUser?.email ?? "未ログイン"}
+                </Text>
+                <Button
+                  size="xs"
+                  variant="outline"
+                  onClick={() => void handleSignOut()}
+                  loading={isSignOutRunning}
+                >
+                  ログアウト
+                </Button>
+              </HStack>
+            </HStack>
+          ) : null}
+
+          <HStack gap={2} flexWrap="wrap">
+            {STEP_ITEMS.map((item, index) => (
+              <Badge
+                key={item.label}
+                variant={index <= currentStepIndex ? "solid" : "outline"}
+                colorPalette={index <= currentStepIndex ? "teal" : "gray"}
+              >
+                {index + 1}. {item.label}
+              </Badge>
+            ))}
+          </HStack>
 
           <Card.Root
             bg="var(--app-surface)"
@@ -1271,118 +1062,7 @@ export default function Home() {
             borderRadius="2xl"
             className={`flow-card flow-card--${transitionDirection}`}
           >
-            <Card.Header pb={4}>
-              <Stack gap={4}>
-                <Steps.Root
-                  count={FLOW_SCREENS.length}
-                  step={activeScreen}
-                  linear={false}
-                  onStepChange={(details) => handleStepChange(details.step)}
-                >
-                  <Steps.List>
-                    {FLOW_SCREENS.map((item, index) => {
-                      const screenIndex = clampFlowScreen(index);
-                      const disabled = !isScreenAvailable(screenIndex);
-
-                      return (
-                        <Steps.Item index={index} key={item.title} flex="1">
-                          <Steps.Trigger
-                            disabled={disabled}
-                            px={2}
-                            py={1.5}
-                            rounded="lg"
-                            _hover={{
-                              bg: disabled ? undefined : "blackAlpha.50",
-                            }}
-                            _disabled={{
-                              opacity: 0.4,
-                              cursor: "not-allowed",
-                            }}
-                          >
-                            <HStack align="start" gap={3}>
-                              <Steps.Indicator>
-                                <Steps.Status
-                                  complete={<Text fontWeight="bold">✓</Text>}
-                                  incomplete={<Steps.Number />}
-                                  current={<Steps.Number />}
-                                />
-                              </Steps.Indicator>
-                              <Stack gap={0} align="start">
-                                <Steps.Title fontSize="sm">
-                                  {item.title}
-                                </Steps.Title>
-                                <Steps.Description
-                                  fontSize="xs"
-                                  color="fg.muted"
-                                >
-                                  {item.description}
-                                </Steps.Description>
-                              </Stack>
-                            </HStack>
-                          </Steps.Trigger>
-                          {index < FLOW_SCREENS.length - 1 ? (
-                            <Steps.Separator />
-                          ) : null}
-                        </Steps.Item>
-                      );
-                    })}
-                  </Steps.List>
-                </Steps.Root>
-
-                <Separator />
-
-                <HStack justify="space-between" flexWrap="wrap" gap={3}>
-                  <Stack gap={0}>
-                    <Text fontSize="sm" color="fg.muted">
-                      現在の画面
-                    </Text>
-                    <Heading size="md">
-                      {FLOW_SCREENS[activeScreen].title}
-                    </Heading>
-                  </Stack>
-                  <HStack gap={2}>
-                    <Badge
-                      colorPalette={phase === "failed" ? "red" : "teal"}
-                      variant="subtle"
-                    >
-                      {statusLabel}
-                    </Badge>
-                    <Badge colorPalette="gray" variant="subtle">
-                      step {activeScreen + 1}/{FLOW_SCREENS.length}
-                    </Badge>
-                  </HStack>
-                </HStack>
-              </Stack>
-            </Card.Header>
-
-            <Card.Body pt={0}>{screenBody}</Card.Body>
-
-            <Card.Footer pt={2}>
-              <HStack justify="space-between" w="full">
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    if (previousAvailableScreen !== null) {
-                      moveToScreen(previousAvailableScreen);
-                    }
-                  }}
-                  disabled={previousAvailableScreen === null}
-                >
-                  前の画面
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    if (nextAvailableScreen !== null) {
-                      moveToScreen(nextAvailableScreen);
-                    }
-                  }}
-                  disabled={nextAvailableScreen === null}
-                >
-                  次の画面
-                </Button>
-              </HStack>
-            </Card.Footer>
+            <Card.Body>{screenBody}</Card.Body>
           </Card.Root>
         </Stack>
       </Container>
