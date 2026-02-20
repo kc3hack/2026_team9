@@ -38,10 +38,12 @@ export function createApp(): App {
 			return c.body(null, 204);
 		}
 
-		await next();
-
-		if (allowedOrigin) {
-			applyCorsHeaders(c, allowedOrigin);
+		try {
+			await next();
+		} finally {
+			if (allowedOrigin) {
+				applyCorsHeaders(c, allowedOrigin);
+			}
 		}
 	});
 
