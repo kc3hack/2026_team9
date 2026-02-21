@@ -165,7 +165,8 @@ export async function getTodayEvents(
     }));
 
   const timedEvents = events.filter((e) => !e.isAllDay);
-  const earliestEvent = timedEvents.length > 0 ? (timedEvents[0] ?? null) : null;
+  const earliestEvent =
+    timedEvents.length > 0 ? (timedEvents[0] ?? null) : null;
 
   return { date, events, earliestEvent };
 }
