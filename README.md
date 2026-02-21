@@ -83,6 +83,7 @@
 - Google Maps Routes API
 - OpenWeather API
 - D1
+
 **Frontend**
 - Next.js
 - TypeScript
