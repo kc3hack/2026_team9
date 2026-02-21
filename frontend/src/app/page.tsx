@@ -196,6 +196,20 @@ function toStatusLabelFromRecord(status: WorkflowRecord["status"]): string {
   return "失敗";
 }
 
+function toHistoryTitle(record: WorkflowRecord): string {
+  const goal = record.llmOutput?.goal?.trim();
+  if (goal && goal.length > 0) {
+    return goal;
+  }
+
+  const summary = record.llmOutput?.summary?.trim();
+  if (summary && summary.length > 0) {
+    return summary;
+  }
+
+  return record.taskInput;
+}
+
 function toWorkflowProgress(
   phase: RunPhase,
   record: WorkflowRecord | null,
@@ -719,7 +733,7 @@ export default function Home() {
                       <HStack justify="space-between" align="start" gap={3}>
                         <Stack gap={0.5}>
                           <Text fontSize="sm" lineClamp={2}>
-                            {item.taskInput}
+                            {toHistoryTitle(item)}
                           </Text>
                           <Text fontSize="xs" color="fg.muted">
                             {formatDateTime(item.createdAt, item.timezone)} /{" "}
@@ -974,7 +988,9 @@ export default function Home() {
                       <List.Item key={item.workflowId}>
                         <HStack justify="space-between" align="start" gap={3}>
                           <Stack gap={0.5}>
-                            <Text fontWeight="medium">{item.taskInput}</Text>
+                            <Text fontWeight="medium">
+                              {toHistoryTitle(item)}
+                            </Text>
                             <Text fontSize="xs" color="fg.muted">
                               {formatDateTime(item.createdAt, item.timezone)} /{" "}
                               {toStatusLabelFromRecord(item.status)}
