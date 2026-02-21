@@ -185,66 +185,78 @@ export default function DashboardPage() {
             </WidgetCard>
 
             <WidgetCard title="アプリ起動" colSpan={{ base: 1, md: 6 }}>
-              <Grid templateColumns={{ base: "1fr", md: "repeat(3, 1fr)" }} gap={3}>
-                <Box
-                  as="a"
+              <Grid
+                templateColumns={{ base: "1fr", md: "repeat(3, 1fr)" }}
+                gap={3}
+              >
+                <a
                   href="https://calendar.google.com"
                   target="_blank"
                   rel="noreferrer"
-                  borderWidth="1px"
-                  borderColor="blue.100"
-                  borderRadius="xl"
-                  p={3}
-                  bg="blue.50"
-                  _hover={{ bg: "blue.100" }}
+                  style={{ textDecoration: "none", display: "block" }}
                 >
-                  <Text fontWeight="bold" color="blue.800">
-                    カレンダー
-                  </Text>
-                  <Text fontSize="sm" color="blue.700">
-                    予定を確認する
-                  </Text>
-                </Box>
+                  <Box
+                    borderWidth="1px"
+                    borderColor="blue.100"
+                    borderRadius="xl"
+                    p={3}
+                    bg="blue.50"
+                    _hover={{ bg: "blue.100" }}
+                  >
+                    <Text fontWeight="bold" color="blue.800">
+                      カレンダー
+                    </Text>
+                    <Text fontSize="sm" color="blue.700">
+                      予定を確認する
+                    </Text>
+                  </Box>
+                </a>
 
-                <Box
-                  as="a"
+                <a
                   href="https://www.google.com/maps"
                   target="_blank"
                   rel="noreferrer"
-                  borderWidth="1px"
-                  borderColor="green.100"
-                  borderRadius="xl"
-                  p={3}
-                  bg="green.50"
-                  _hover={{ bg: "green.100" }}
+                  style={{ textDecoration: "none", display: "block" }}
                 >
-                  <Text fontWeight="bold" color="green.800">
-                    マップ
-                  </Text>
-                  <Text fontSize="sm" color="green.700">
-                    経路を確認する
-                  </Text>
-                </Box>
+                  <Box
+                    borderWidth="1px"
+                    borderColor="green.100"
+                    borderRadius="xl"
+                    p={3}
+                    bg="green.50"
+                    _hover={{ bg: "green.100" }}
+                  >
+                    <Text fontWeight="bold" color="green.800">
+                      マップ
+                    </Text>
+                    <Text fontSize="sm" color="green.700">
+                      経路を確認する
+                    </Text>
+                  </Box>
+                </a>
 
-                <Box
-                  as="a"
+                <a
                   href="https://www.google.com/search?q=天気"
                   target="_blank"
                   rel="noreferrer"
-                  borderWidth="1px"
-                  borderColor="orange.100"
-                  borderRadius="xl"
-                  p={3}
-                  bg="orange.50"
-                  _hover={{ bg: "orange.100" }}
+                  style={{ textDecoration: "none", display: "block" }}
                 >
-                  <Text fontWeight="bold" color="orange.800">
-                    天気
-                  </Text>
-                  <Text fontSize="sm" color="orange.700">
-                    雨予報を確認する
-                  </Text>
-                </Box>
+                  <Box
+                    borderWidth="1px"
+                    borderColor="orange.100"
+                    borderRadius="xl"
+                    p={3}
+                    bg="orange.50"
+                    _hover={{ bg: "orange.100" }}
+                  >
+                    <Text fontWeight="bold" color="orange.800">
+                      天気
+                    </Text>
+                    <Text fontSize="sm" color="orange.700">
+                      雨予報を確認する
+                    </Text>
+                  </Box>
+                </a>
               </Grid>
             </WidgetCard>
 
@@ -318,35 +330,41 @@ function WidgetCard({
   if (href) {
     return (
       <Box
-        as="a"
-        href={href}
-        target="_blank"
-        rel="noreferrer"
         gridColumn={{
           base: "auto",
           md: `span ${colSpan.md} / span ${colSpan.md}`,
         }}
-        bg="white"
-        borderWidth="1px"
-        borderColor="gray.200"
-        borderRadius="2xl"
-        p={4}
-        minH="120px"
-        boxShadow="sm"
-        _hover={{ boxShadow: "md", transform: "translateY(-1px)" }}
-        transition="all 0.15s ease"
       >
-        <Stack gap={3} h="100%">
-          <Text
-            fontSize="xs"
-            color="gray.500"
-            textTransform="uppercase"
-            letterSpacing="0.06em"
+        <a
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+          style={{ textDecoration: "none", display: "block" }}
+        >
+          <Box
+            bg="white"
+            borderWidth="1px"
+            borderColor="gray.200"
+            borderRadius="2xl"
+            p={4}
+            minH="120px"
+            boxShadow="sm"
+            _hover={{ boxShadow: "md", transform: "translateY(-1px)" }}
+            transition="all 0.15s ease"
           >
-            {title}
-          </Text>
-          <Box>{children}</Box>
-        </Stack>
+            <Stack gap={3} h="100%">
+              <Text
+                fontSize="xs"
+                color="gray.500"
+                textTransform="uppercase"
+                letterSpacing="0.06em"
+              >
+                {title}
+              </Text>
+              <Box>{children}</Box>
+            </Stack>
+          </Box>
+        </a>
       </Box>
     );
   }
