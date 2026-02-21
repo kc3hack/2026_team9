@@ -523,40 +523,49 @@ export default function TaskDecompPage() {
             </Steps.Root>
 
             {viewMode !== "auth" ? (
-              <HStack justify="end" gap={2}>
-                <Avatar.Root size="xs">
-                  {signedInUser?.image ? (
-                    <Avatar.Image
-                      src={signedInUser.image}
-                      alt={signedInUser.name}
-                    />
-                  ) : null}
-                  <Avatar.Fallback>
-                    {toInitials(signedInUser?.name)}
-                  </Avatar.Fallback>
-                </Avatar.Root>
-                <Text
-                  fontSize="sm"
-                  color="fg.muted"
-                  display={{ base: "none", md: "block" }}
-                >
-                  {signedInUser?.email ?? "未ログイン"}
-                </Text>
+              <HStack
+                justify="space-between"
+                align="center"
+                gap={2}
+                flexWrap="wrap"
+              >
                 <Button
                   size="xs"
+                  colorPalette="teal"
                   variant="outline"
                   onClick={handleOpenHistoryDrawer}
                 >
-                  履歴
+                  履歴 ({history.length})
                 </Button>
-                <Button
-                  size="xs"
-                  variant="outline"
-                  onClick={() => void handleSignOut()}
-                  loading={isSignOutRunning}
-                >
-                  ログアウト
-                </Button>
+
+                <HStack justify="end" gap={2}>
+                  <Avatar.Root size="xs">
+                    {signedInUser?.image ? (
+                      <Avatar.Image
+                        src={signedInUser.image}
+                        alt={signedInUser.name}
+                      />
+                    ) : null}
+                    <Avatar.Fallback>
+                      {toInitials(signedInUser?.name)}
+                    </Avatar.Fallback>
+                  </Avatar.Root>
+                  <Text
+                    fontSize="sm"
+                    color="fg.muted"
+                    display={{ base: "none", md: "block" }}
+                  >
+                    {signedInUser?.email ?? "未ログイン"}
+                  </Text>
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    onClick={() => void handleSignOut()}
+                    loading={isSignOutRunning}
+                  >
+                    ログアウト
+                  </Button>
+                </HStack>
               </HStack>
             ) : null}
           </Stack>
