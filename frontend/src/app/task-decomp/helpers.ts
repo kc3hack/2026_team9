@@ -57,7 +57,9 @@ export function needsCalendarReauth(rawMessage: string | null): boolean {
   return Boolean(rawMessage?.includes(CALENDAR_REAUTH_MARKER));
 }
 
-export function toDisplayErrorMessage(rawMessage: string | null): string | null {
+export function toDisplayErrorMessage(
+  rawMessage: string | null,
+): string | null {
   if (!rawMessage) {
     return null;
   }
@@ -132,7 +134,9 @@ export function toStatusLabel(
   return "未実行";
 }
 
-export function toStatusLabelFromRecord(status: WorkflowRecord["status"]): string {
+export function toStatusLabelFromRecord(
+  status: WorkflowRecord["status"],
+): string {
   if (status === "queued") {
     return "キュー待ち";
   }

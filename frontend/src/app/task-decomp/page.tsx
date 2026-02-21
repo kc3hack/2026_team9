@@ -16,9 +16,9 @@ import type { FormEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getSession,
+  type SessionResponse,
   signInWithGoogle,
   signOut,
-  type SessionResponse,
 } from "@/lib/auth-api";
 import {
   getTaskWorkflowHistory,
@@ -28,7 +28,13 @@ import {
   type WorkflowRecord,
   type WorkflowRuntimeStatus,
 } from "@/lib/task-workflow-api";
-import { STEP_ITEMS, DEFAULT_USER_TIMEZONE } from "./constants";
+import {
+  AuthStep,
+  ComposeStep,
+  ResultStep,
+  RunningStep,
+} from "./components/task-decomp-steps";
+import { DEFAULT_USER_TIMEZONE, STEP_ITEMS } from "./constants";
 import {
   needsCalendarReauth,
   toDeadlineIso,
@@ -39,12 +45,6 @@ import {
   toWorkflowProgress,
   viewIndex,
 } from "./helpers";
-import {
-  AuthStep,
-  ComposeStep,
-  ResultStep,
-  RunningStep,
-} from "./components/task-decomp-steps";
 import type {
   ResultTab,
   RunPhase,
@@ -192,7 +192,9 @@ export default function TaskDecompPage() {
 
         if (response.record?.status === "failed") {
           setPhase("failed");
-          setErrorMessage(response.record.errorMessage ?? "Workflow が失敗しました。");
+          setErrorMessage(
+            response.record.errorMessage ?? "Workflow が失敗しました。",
+          );
           void refreshHistory();
           return;
         }
@@ -306,7 +308,9 @@ export default function TaskDecompPage() {
         setPhase("completed");
       } else if (response.record?.status === "failed") {
         setPhase("failed");
-        setErrorMessage(response.record.errorMessage ?? "Workflow が失敗しました。");
+        setErrorMessage(
+          response.record.errorMessage ?? "Workflow が失敗しました。",
+        );
       } else {
         setPhase("waiting");
       }
@@ -493,9 +497,14 @@ export default function TaskDecompPage() {
               <HStack gap={2}>
                 <Avatar.Root size="xs">
                   {signedInUser?.image ? (
-                    <Avatar.Image src={signedInUser.image} alt={signedInUser.name} />
+                    <Avatar.Image
+                      src={signedInUser.image}
+                      alt={signedInUser.name}
+                    />
                   ) : null}
-                  <Avatar.Fallback>{toInitials(signedInUser?.name)}</Avatar.Fallback>
+                  <Avatar.Fallback>
+                    {toInitials(signedInUser?.name)}
+                  </Avatar.Fallback>
                 </Avatar.Root>
                 <Text fontSize="sm" color="fg.muted">
                   {signedInUser?.email ?? "未ログイン"}
