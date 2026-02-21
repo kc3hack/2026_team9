@@ -2,7 +2,6 @@
 
 import {
   Avatar,
-  Badge,
   Box,
   Button,
   Card,
@@ -10,6 +9,7 @@ import {
   Heading,
   HStack,
   Stack,
+  Steps,
   Text,
 } from "@chakra-ui/react";
 import type { FormEvent } from "react";
@@ -474,14 +474,40 @@ export default function TaskDecompPage() {
             </Text>
           </Stack>
 
-          {viewMode !== "auth" ? (
-            <HStack justify="space-between" flexWrap="wrap" gap={3}>
-              <Badge colorPalette="teal" variant="subtle">
-                {currentStepIndex + 1} / {STEP_ITEMS.length} :{" "}
-                {STEP_ITEMS[currentStepIndex].label}
-              </Badge>
+          <Stack gap={3}>
+            <Steps.Root
+              step={currentStepIndex}
+              count={STEP_ITEMS.length}
+              colorPalette="teal"
+              size="sm"
+              linear
+            >
+              <Steps.List>
+                {STEP_ITEMS.map((item, index) => (
+                  <Steps.Item key={item.label} index={index} flex="1">
+                    <Steps.Trigger
+                      disabled
+                      px={{ base: 1, md: 2 }}
+                      py={1}
+                      justifyContent="center"
+                      gap={2}
+                    >
+                      <Steps.Indicator />
+                      <Steps.Title
+                        fontSize={{ base: "xs", md: "sm" }}
+                        display={{ base: "none", sm: "block" }}
+                      >
+                        {item.label}
+                      </Steps.Title>
+                    </Steps.Trigger>
+                    {index < STEP_ITEMS.length - 1 ? <Steps.Separator /> : null}
+                  </Steps.Item>
+                ))}
+              </Steps.List>
+            </Steps.Root>
 
-              <HStack gap={2}>
+            {viewMode !== "auth" ? (
+              <HStack justify="end" gap={2}>
                 <Avatar.Root size="xs">
                   {signedInUser?.image ? (
                     <Avatar.Image
@@ -509,8 +535,8 @@ export default function TaskDecompPage() {
                   ログアウト
                 </Button>
               </HStack>
-            </HStack>
-          ) : null}
+            ) : null}
+          </Stack>
 
           <Card.Root
             bg="var(--app-surface)"
