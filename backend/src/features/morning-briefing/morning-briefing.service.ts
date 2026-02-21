@@ -10,6 +10,10 @@ import type {
   MorningBriefingResult,
 } from "./morning-briefing.types";
 
+type CacheRow = {
+  payload_json: string;
+};
+
 // ---------------------------------------------------------------------------
 // JST helpers
 // ---------------------------------------------------------------------------
@@ -132,16 +136,115 @@ async function buildEventBriefing(
 // Main entry point
 // ---------------------------------------------------------------------------
 
+function formatJstDate(jstDate: Date): string {
+  return jstDate.toISOString().split("T")[0] as string;
+}
+
 /**
- * Generate a complete morning briefing for the authenticated user.
+ * Cache slots:
+ *   - 05:00 update slot
+ *   - 23:00 update slot
  *
- * Flow:
- *   1. Fetch today's Google Calendar events
- *   2. For each event **with a location**, query Google Directions (transit)
- *   3. Compute departure time, wake-up time, slack, late-risk
- *   4. Return a sorted list + the most urgent item
+ * Between 00:00-04:59, we still use the previous day's 23:00 slot.
  */
-export async function getMorningBriefing(
+function getCacheSlotKey(nowUtc: Date): string {
+  const jst = new Date(nowUtc.getTime() + JST_OFFSET_MS);
+  const hour = jst.getUTCHours();
+  const date = formatJstDate(jst);
+
+  if (hour >= 23) {
+    return `${date}@23`;
+  }
+
+  if (hour >= 5) {
+    return `${date}@05`;
+  }
+
+  const prev = new Date(jst.getTime() - 24 * 60 * 60 * 1000);
+  return `${formatJstDate(prev)}@23`;
+}
+
+function normalizeLocationKey(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function cacheId(
+  userId: string,
+  slotKey: string,
+  locationKey: string,
+  prepMinutes: number,
+): string {
+  return `${userId}::${slotKey}::${locationKey}::${prepMinutes}`;
+}
+
+async function readCache(
+  db: D1Database,
+  userId: string,
+  slotKey: string,
+  locationKey: string,
+  prepMinutes: number,
+): Promise<MorningBriefingResult | null> {
+  const row = await db
+    .prepare(
+      `SELECT payload_json
+       FROM morning_briefing_cache
+       WHERE user_id = ?1
+         AND slot_key = ?2
+         AND location_key = ?3
+         AND prep_minutes = ?4
+       LIMIT 1`,
+    )
+    .bind(userId, slotKey, locationKey, prepMinutes)
+    .first<CacheRow>();
+
+  if (!row?.payload_json) return null;
+
+  try {
+    return JSON.parse(row.payload_json) as MorningBriefingResult;
+  } catch {
+    return null;
+  }
+}
+
+async function writeCache(
+  db: D1Database,
+  userId: string,
+  slotKey: string,
+  locationKey: string,
+  prepMinutes: number,
+  payload: MorningBriefingResult,
+): Promise<void> {
+  const nowIso = new Date().toISOString();
+  await db
+    .prepare(
+      `INSERT INTO morning_briefing_cache (
+         id,
+         user_id,
+         slot_key,
+         location_key,
+         prep_minutes,
+         payload_json,
+         created_at,
+         updated_at
+       ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7)
+       ON CONFLICT(user_id, slot_key, location_key, prep_minutes)
+       DO UPDATE SET
+         payload_json = excluded.payload_json,
+         updated_at = excluded.updated_at`,
+    )
+    .bind(
+      cacheId(userId, slotKey, locationKey, prepMinutes),
+      userId,
+      slotKey,
+      locationKey,
+      prepMinutes,
+      JSON.stringify(payload),
+      nowIso,
+    )
+    .run();
+}
+
+async function computeMorningBriefing(
   env: Env,
   userId: string,
   req: MorningBriefingRequest,
@@ -219,4 +322,52 @@ export async function getMorningBriefing(
     eventsWithoutLocation: withoutLocation,
     weather,
   };
+}
+
+/**
+ * Generate a complete morning briefing for the authenticated user.
+ *
+ * Flow:
+ *   1. Fetch today's Google Calendar events
+ *   2. For each event **with a location**, query Google Directions (transit)
+ *   3. Compute departure time, wake-up time, slack, late-risk
+ *   4. Return a sorted list + the most urgent item
+ */
+export async function getMorningBriefing(
+  env: Env,
+  userId: string,
+  req: MorningBriefingRequest,
+): Promise<MorningBriefingResult> {
+  const prepMinutes = req.prepMinutes ?? 30;
+  const slotKey = getCacheSlotKey(new Date());
+  const locationKey = normalizeLocationKey(req.currentLocation);
+
+  if (!req.forceRefresh) {
+    const cached = await readCache(
+      env.AUTH_DB,
+      userId,
+      slotKey,
+      locationKey,
+      prepMinutes,
+    );
+    if (cached) {
+      return cached;
+    }
+  }
+
+  const computed = await computeMorningBriefing(env, userId, {
+    ...req,
+    prepMinutes,
+  });
+
+  await writeCache(
+    env.AUTH_DB,
+    userId,
+    slotKey,
+    locationKey,
+    prepMinutes,
+    computed,
+  );
+
+  return computed;
 }

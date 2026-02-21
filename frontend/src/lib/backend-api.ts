@@ -84,12 +84,13 @@ export async function fetchTransitDirections(
 export async function fetchMorningBriefing(
   currentLocation: string,
   prepMinutes?: number,
+  forceRefresh?: boolean,
 ): Promise<unknown> {
   const res = await fetch(endpoint("/briefing/morning"), {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ currentLocation, prepMinutes }),
+    body: JSON.stringify({ currentLocation, prepMinutes, forceRefresh }),
   });
   if (!res.ok)
     throw new Error(`Briefing API: ${res.status} ${await res.text()}`);

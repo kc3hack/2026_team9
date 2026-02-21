@@ -41,6 +41,7 @@ export function registerBriefingRoutes(app: App): void {
         typeof body.prepMinutes === "number" && body.prepMinutes > 0
           ? body.prepMinutes
           : undefined,
+      forceRefresh: body.forceRefresh === true,
     });
 
     return c.json(result);

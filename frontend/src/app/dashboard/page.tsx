@@ -84,25 +84,29 @@ export default function DashboardPage() {
   const [state, setState] = useState<State>({ status: "loading", data: null });
   const [locationInput, setLocationInput] = useState("大阪駅");
   const [currentLocation, setCurrentLocation] = useState("大阪駅");
+  const [refreshToken, setRefreshToken] = useState(0);
+  const [forceRefresh, setForceRefresh] = useState(false);
 
   useEffect(() => {
     let active = true;
     setState((prev) => ({ ...prev, status: "loading" }));
 
-    fetchMorningBriefing(currentLocation, 30)
+    fetchMorningBriefing(currentLocation, 30, forceRefresh)
       .then((raw) => {
         if (!active) return;
         setState({ status: "ready", data: raw as MorningBriefingResult });
+        setForceRefresh(false);
       })
       .catch(() => {
         if (!active) return;
         setState({ status: "error", data: null });
+        setForceRefresh(false);
       });
 
     return () => {
       active = false;
     };
-  }, [currentLocation]);
+  }, [currentLocation, refreshToken, forceRefresh]);
 
   const urgent = state.data?.urgent ?? null;
   const departure = urgent?.leaveBy ?? "--:--";
@@ -124,45 +128,74 @@ export default function DashboardPage() {
 
     return [...byId.values()]
       .filter((e) => !e.isAllDay)
-      .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+      .sort(
+        (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime(),
+      );
   }, [state.data]);
 
+  const applyLocation = () => {
+    const next = locationInput.trim() || "大阪駅";
+    setLocationInput(next);
+    setCurrentLocation(next);
+    setForceRefresh(true);
+    setRefreshToken((v) => v + 1);
+  };
+
   return (
-    <Box minH="100dvh" bg="#eeece8" py={{ base: 8, md: 14 }}>
+    <Box minH="100dvh" bg="#eeece8" py={{ base: 8, md: 12 }}>
       <Container maxW="2xl">
-        <Stack gap={6}>
-          <HStack justify="center" gap={2}>
+        <Stack gap={5}>
+          <HStack
+            justify="center"
+            gap={2}
+            bg="white"
+            borderWidth="1px"
+            borderColor="gray.200"
+            borderRadius="xl"
+            p={2}
+          >
             <Input
               value={locationInput}
               onChange={(e) => setLocationInput(e.target.value)}
-              maxW="240px"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  applyLocation();
+                }
+              }}
+              flex="1"
+              minW={{ base: "140px", md: "240px" }}
               bg="white"
               borderColor="gray.300"
-              size="sm"
+              size="md"
               placeholder="現在地（例: 大阪駅）"
             />
             <Button
-              size="sm"
+              size="md"
+              minW="84px"
               colorPalette="gray"
-              onClick={() => setCurrentLocation(locationInput.trim() || "大阪駅")}
+              onClick={applyLocation}
             >
               更新
             </Button>
           </HStack>
 
-          <Stack gap={1} textAlign="center" pt={2}>
-            <Text color="gray.700" fontSize="2xl" letterSpacing="0.06em">
+          <Stack gap={1} textAlign="center" pt={1}>
+            <Text
+              color="gray.700"
+              fontSize={{ base: "md", md: "lg" }}
+              letterSpacing="0.08em"
+            >
               出発まで
             </Text>
             <Text
-              fontSize={{ base: "6xl", md: "8xl" }}
+              fontSize={{ base: "5xl", md: "7xl" }}
               fontWeight="bold"
               color="gray.800"
               lineHeight={1}
             >
               {departure}
             </Text>
-            <Text color="gray.600" fontSize="3xl">
+            <Text color="gray.600" fontSize={{ base: "lg", md: "xl" }}>
               遅刻リスク{" "}
               <Text
                 as="span"
@@ -177,16 +210,24 @@ export default function DashboardPage() {
             </Text>
           </Stack>
 
-          <Grid templateColumns={{ base: "1fr", md: "1fr 1fr" }} gap={4}>
-            <Card>
-              <Text fontSize="2xl" color="gray.500" mb={2}>
+          <Grid
+            templateColumns={{ base: "1fr", md: "1fr 1fr" }}
+            gap={4}
+            alignItems="stretch"
+          >
+            <Card minH={{ base: "160px", md: "180px" }}>
+              <Text fontSize="md" color="gray.500" mb={1}>
                 交通
               </Text>
-              <Text fontSize="5xl" fontWeight="semibold" color="gray.800">
+              <Text
+                fontSize={{ base: "3xl", md: "4xl" }}
+                fontWeight="semibold"
+                color="gray.800"
+              >
                 {transitMinutes}
                 <Text
                   as="span"
-                  fontSize="3xl"
+                  fontSize="xl"
                   color="gray.500"
                   fontWeight="normal"
                 >
@@ -195,7 +236,7 @@ export default function DashboardPage() {
               </Text>
               <Text
                 color="gray.700"
-                fontSize="2xl"
+                fontSize={{ base: "lg", md: "xl" }}
                 fontWeight="semibold"
                 mt={1}
                 overflow="hidden"
@@ -204,27 +245,31 @@ export default function DashboardPage() {
               >
                 {transitSummary}
               </Text>
-              <Text mt={2} color="green.600" fontSize="xl">
+              <Text mt={1} color="green.600" fontSize="md">
                 定刻通り
               </Text>
             </Card>
 
-            <Card>
-              <Text fontSize="2xl" color="gray.500" mb={2}>
+            <Card minH={{ base: "160px", md: "180px" }}>
+              <Text fontSize="md" color="gray.500" mb={1}>
                 余裕
               </Text>
-              <Text fontSize="5xl" fontWeight="semibold" color="gray.800">
+              <Text
+                fontSize={{ base: "3xl", md: "4xl" }}
+                fontWeight="semibold"
+                color="gray.800"
+              >
                 {Math.max(0, slack)}
                 <Text
                   as="span"
-                  fontSize="3xl"
+                  fontSize="xl"
                   color="gray.500"
                   fontWeight="normal"
                 >
                   分
                 </Text>
               </Text>
-              <Text color="gray.600" fontSize="2xl" mt={1}>
+              <Text color="gray.600" fontSize={{ base: "md", md: "lg" }} mt={1}>
                 {departure}に出れば
               </Text>
               <Box
@@ -244,13 +289,13 @@ export default function DashboardPage() {
             </Card>
           </Grid>
 
-          <Card>
-            <Text fontSize="2xl" color="gray.500" mb={3}>
+          <Card minH={{ base: "220px", md: "250px" }}>
+            <Text fontSize="md" color="gray.500" mb={2}>
               今日の予定
             </Text>
-            <Stack gap={4}>
+            <Stack gap={3}>
               {todayEvents.length === 0 ? (
-                <Text color="gray.500" fontSize="lg">
+                <Text color="gray.500" fontSize="md">
                   予定はありません
                 </Text>
               ) : (
@@ -264,19 +309,27 @@ export default function DashboardPage() {
                       bg="green.500"
                     />
                     <Stack gap={1}>
-                      <Text fontSize="4xl" fontWeight="semibold" color="gray.800">
+                      <Text
+                        fontSize={{ base: "2xl", md: "3xl" }}
+                        fontWeight="semibold"
+                        color="gray.800"
+                      >
                         {toJstHHmm(event.start)}
                         <Text
                           as="span"
-                          fontSize="4xl"
+                          fontSize={{ base: "2xl", md: "3xl" }}
                           fontWeight="normal"
                           ml={2}
                         >
                           {event.summary}
                         </Text>
                       </Text>
-                      <Text fontSize="2xl" color="gray.500">
-                        {event.location ?? "場所未設定"} / {eventDurationMinutes(event.start, event.end)}分
+                      <Text
+                        fontSize={{ base: "md", md: "lg" }}
+                        color="gray.500"
+                      >
+                        {event.location ?? "場所未設定"} /{" "}
+                        {eventDurationMinutes(event.start, event.end)}分
                       </Text>
                     </Stack>
                   </HStack>
@@ -285,8 +338,8 @@ export default function DashboardPage() {
             </Stack>
           </Card>
 
-          <Card>
-            <Text fontSize="2xl" color="gray.500" mb={3}>
+          <Card minH={{ base: "180px", md: "210px" }}>
+            <Text fontSize="md" color="gray.500" mb={2}>
               天気
             </Text>
             <Grid
@@ -295,21 +348,33 @@ export default function DashboardPage() {
               alignItems="center"
             >
               <HStack gap={3}>
-                <Text fontSize="4xl">{weather?.umbrellaNeeded ? "☔" : "☀️"}</Text>
+                <Text fontSize="3xl">
+                  {weather?.umbrellaNeeded ? "☔" : "☀️"}
+                </Text>
                 <Stack gap={0}>
-                  <Text fontSize="5xl" fontWeight="semibold" color="gray.800">
+                  <Text
+                    fontSize={{ base: "3xl", md: "4xl" }}
+                    fontWeight="semibold"
+                    color="gray.800"
+                  >
                     {weather ? `${weather.precipitationProbability}%` : "--%"}
                   </Text>
-                  <Text fontSize="2xl" color="gray.600">
+                  <Text fontSize={{ base: "md", md: "lg" }} color="gray.600">
                     {weather?.umbrellaNeeded ? "傘あり" : "晴れ"}
                   </Text>
                 </Stack>
               </HStack>
 
-              <Stack gap={1} color="gray.600" fontSize="2xl">
-                <Text>降水量 {weather ? `${weather.precipitationMm} mm/h` : "--"}</Text>
+              <Stack
+                gap={1}
+                color="gray.600"
+                fontSize={{ base: "md", md: "lg" }}
+              >
+                <Text>
+                  降水量 {weather ? `${weather.precipitationMm} mm/h` : "--"}
+                </Text>
                 <Text>{weather?.locationName ?? "-"}</Text>
-                <Text fontSize="lg" color="gray.500">
+                <Text fontSize="sm" color="gray.500">
                   {weather?.reason ?? "天気情報なし"}
                 </Text>
               </Stack>
@@ -317,7 +382,7 @@ export default function DashboardPage() {
           </Card>
 
           {state.status === "error" && (
-            <Text color="red.600" textAlign="center" fontSize="lg">
+            <Text color="red.600" textAlign="center" fontSize="md">
               API取得に失敗しました。ログイン状態とバックエンド起動を確認してください。
             </Text>
           )}
@@ -327,12 +392,19 @@ export default function DashboardPage() {
   );
 }
 
-function Card({ children }: { children: React.ReactNode }) {
+function Card({
+  children,
+  minH,
+}: {
+  children: React.ReactNode;
+  minH?: string | { base: string; md: string };
+}) {
   return (
     <Box
       bg="white"
       borderRadius="2xl"
-      p={5}
+      p={{ base: 4, md: 5 }}
+      minH={minH}
       borderWidth="1px"
       borderColor="gray.200"
       boxShadow="sm"

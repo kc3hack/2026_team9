@@ -14,6 +14,11 @@ export type MorningBriefingRequest = {
    * Default: 30
    */
   prepMinutes?: number;
+  /**
+   * Force bypass cache and recompute briefing immediately.
+   * Used when user explicitly presses "更新".
+   */
+  forceRefresh?: boolean;
 };
 
 // ---------------------------------------------------------------------------
