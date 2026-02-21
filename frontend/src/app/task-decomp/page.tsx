@@ -6,8 +6,11 @@ import {
   Button,
   Card,
   Container,
+  Drawer,
   Heading,
   HStack,
+  List,
+  Portal,
   Stack,
   Steps,
   Text,
@@ -36,12 +39,15 @@ import {
 } from "./components/task-decomp-steps";
 import { DEFAULT_USER_TIMEZONE, STEP_ITEMS } from "./constants";
 import {
+  formatDateTime,
   needsCalendarReauth,
   toDeadlineIso,
   toDisplayErrorMessage,
   toErrorMessage,
+  toHistoryTitle,
   toInitials,
   toStatusLabel,
+  toStatusLabelFromRecord,
   toWorkflowProgress,
   viewIndex,
 } from "./helpers";
@@ -70,6 +76,7 @@ export default function TaskDecompPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isReauthRunning, setIsReauthRunning] = useState(false);
   const [isSignOutRunning, setIsSignOutRunning] = useState(false);
+  const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
   const [dotTick, setDotTick] = useState(0);
 
   const [resultTab, setResultTab] = useState<ResultTab>("result");
@@ -357,6 +364,7 @@ export default function TaskDecompPage() {
     try {
       await signOut();
       setSession(null);
+      setIsHistoryDrawerOpen(false);
       setHistory([]);
       setTask("");
       setContext("");
@@ -393,6 +401,14 @@ export default function TaskDecompPage() {
 
   const currentStepIndex = viewIndex(viewMode);
   const waitingDots = ".".repeat(dotTick + 1);
+  const handleOpenHistoryDrawer = () => {
+    void refreshHistory();
+    setIsHistoryDrawerOpen(true);
+  };
+  const handleSelectHistoryFromDrawer = (item: WorkflowRecord) => {
+    setIsHistoryDrawerOpen(false);
+    handleSelectHistory(item);
+  };
 
   const screenBody = (() => {
     if (viewMode === "auth") {
@@ -529,6 +545,13 @@ export default function TaskDecompPage() {
                 <Button
                   size="xs"
                   variant="outline"
+                  onClick={handleOpenHistoryDrawer}
+                >
+                  履歴
+                </Button>
+                <Button
+                  size="xs"
+                  variant="outline"
                   onClick={() => void handleSignOut()}
                   loading={isSignOutRunning}
                 >
@@ -537,6 +560,75 @@ export default function TaskDecompPage() {
               </HStack>
             ) : null}
           </Stack>
+
+          {viewMode !== "auth" ? (
+            <Drawer.Root
+              open={isHistoryDrawerOpen}
+              onOpenChange={(details) => setIsHistoryDrawerOpen(details.open)}
+              placement={{ base: "bottom", md: "end" }}
+              size={{ base: "full", md: "sm" }}
+            >
+              <Portal>
+                <Drawer.Backdrop />
+                <Drawer.Positioner>
+                  <Drawer.Content>
+                    <Drawer.Header>
+                      <Drawer.Title>実行履歴</Drawer.Title>
+                      <Drawer.Description>
+                        過去のワークフローを選択して再表示できます。
+                      </Drawer.Description>
+                    </Drawer.Header>
+                    <Drawer.Body>
+                      {history.length === 0 ? (
+                        <Text fontSize="sm" color="fg.muted">
+                          まだ履歴はありません。
+                        </Text>
+                      ) : (
+                        <List.Root gap={3}>
+                          {history.map((item) => (
+                            <List.Item key={item.workflowId}>
+                              <HStack
+                                justify="space-between"
+                                align="start"
+                                gap={3}
+                              >
+                                <Stack gap={0.5}>
+                                  <Text fontWeight="medium" lineClamp={2}>
+                                    {toHistoryTitle(item)}
+                                  </Text>
+                                  <Text fontSize="xs" color="fg.muted">
+                                    {formatDateTime(
+                                      item.createdAt,
+                                      item.timezone,
+                                    )}{" "}
+                                    / {toStatusLabelFromRecord(item.status)}
+                                  </Text>
+                                </Stack>
+                                <Button
+                                  size="xs"
+                                  variant="outline"
+                                  onClick={() =>
+                                    handleSelectHistoryFromDrawer(item)
+                                  }
+                                >
+                                  表示
+                                </Button>
+                              </HStack>
+                            </List.Item>
+                          ))}
+                        </List.Root>
+                      )}
+                    </Drawer.Body>
+                    <Drawer.Footer>
+                      <Drawer.CloseTrigger asChild>
+                        <Button variant="outline">閉じる</Button>
+                      </Drawer.CloseTrigger>
+                    </Drawer.Footer>
+                  </Drawer.Content>
+                </Drawer.Positioner>
+              </Portal>
+            </Drawer.Root>
+          ) : null}
 
           <Card.Root
             bg="var(--app-surface)"
