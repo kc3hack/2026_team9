@@ -137,7 +137,11 @@ export default function DashboardPage() {
               </Text>
             </WidgetCard>
 
-            <WidgetCard title="最初の予定" colSpan={{ base: 1, md: 3 }}>
+            <WidgetCard
+              title="最初の予定"
+              colSpan={{ base: 1, md: 3 }}
+              href="https://calendar.google.com"
+            >
               <Text fontWeight="semibold" color="gray.900">
                 {state.data?.earliestEvent?.title ?? "未登録"}
               </Text>
@@ -146,6 +150,9 @@ export default function DashboardPage() {
                 {state.data?.earliestEvent?.location
                   ? ` ・ ${state.data.earliestEvent.location}`
                   : ""}
+              </Text>
+              <Text fontSize="xs" color="blue.600">
+                タップしてカレンダーを開く
               </Text>
             </WidgetCard>
 
@@ -175,6 +182,70 @@ export default function DashboardPage() {
                   今日は標準ルーティンです
                 </Text>
               )}
+            </WidgetCard>
+
+            <WidgetCard title="アプリ起動" colSpan={{ base: 1, md: 6 }}>
+              <Grid templateColumns={{ base: "1fr", md: "repeat(3, 1fr)" }} gap={3}>
+                <Box
+                  as="a"
+                  href="https://calendar.google.com"
+                  target="_blank"
+                  rel="noreferrer"
+                  borderWidth="1px"
+                  borderColor="blue.100"
+                  borderRadius="xl"
+                  p={3}
+                  bg="blue.50"
+                  _hover={{ bg: "blue.100" }}
+                >
+                  <Text fontWeight="bold" color="blue.800">
+                    カレンダー
+                  </Text>
+                  <Text fontSize="sm" color="blue.700">
+                    予定を確認する
+                  </Text>
+                </Box>
+
+                <Box
+                  as="a"
+                  href="https://www.google.com/maps"
+                  target="_blank"
+                  rel="noreferrer"
+                  borderWidth="1px"
+                  borderColor="green.100"
+                  borderRadius="xl"
+                  p={3}
+                  bg="green.50"
+                  _hover={{ bg: "green.100" }}
+                >
+                  <Text fontWeight="bold" color="green.800">
+                    マップ
+                  </Text>
+                  <Text fontSize="sm" color="green.700">
+                    経路を確認する
+                  </Text>
+                </Box>
+
+                <Box
+                  as="a"
+                  href="https://www.google.com/search?q=天気"
+                  target="_blank"
+                  rel="noreferrer"
+                  borderWidth="1px"
+                  borderColor="orange.100"
+                  borderRadius="xl"
+                  p={3}
+                  bg="orange.50"
+                  _hover={{ bg: "orange.100" }}
+                >
+                  <Text fontWeight="bold" color="orange.800">
+                    天気
+                  </Text>
+                  <Text fontSize="sm" color="orange.700">
+                    雨予報を確認する
+                  </Text>
+                </Box>
+              </Grid>
             </WidgetCard>
 
             <WidgetCard title="タイムライン" colSpan={{ base: 1, md: 6 }}>
@@ -237,11 +308,49 @@ function WidgetCard({
   title,
   children,
   colSpan,
+  href,
 }: {
   title: string;
   children: React.ReactNode;
   colSpan: { base: number; md: number };
+  href?: string;
 }) {
+  if (href) {
+    return (
+      <Box
+        as="a"
+        href={href}
+        target="_blank"
+        rel="noreferrer"
+        gridColumn={{
+          base: "auto",
+          md: `span ${colSpan.md} / span ${colSpan.md}`,
+        }}
+        bg="white"
+        borderWidth="1px"
+        borderColor="gray.200"
+        borderRadius="2xl"
+        p={4}
+        minH="120px"
+        boxShadow="sm"
+        _hover={{ boxShadow: "md", transform: "translateY(-1px)" }}
+        transition="all 0.15s ease"
+      >
+        <Stack gap={3} h="100%">
+          <Text
+            fontSize="xs"
+            color="gray.500"
+            textTransform="uppercase"
+            letterSpacing="0.06em"
+          >
+            {title}
+          </Text>
+          <Box>{children}</Box>
+        </Stack>
+      </Box>
+    );
+  }
+
   return (
     <Box
       gridColumn={{
