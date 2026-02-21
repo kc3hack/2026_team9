@@ -351,7 +351,8 @@ export function ResultStep({
                           </Text>
                           <HStack gap={2} flexWrap="wrap">
                             <Badge colorPalette="blue" variant="subtle">
-                              期限: {formatDateTime(subtask.dueAt, record?.timezone)}
+                              期限:{" "}
+                              {formatDateTime(subtask.dueAt, record?.timezone)}
                             </Badge>
                             <Badge colorPalette="teal" variant="subtle">
                               {subtask.durationMinutes} 分
@@ -367,7 +368,9 @@ export function ResultStep({
               {calendarResult ? (
                 <Card.Root variant="outline" bg="var(--app-surface-soft)">
                   <Card.Header pb={2}>
-                    <Card.Title fontSize="md">Google Calendar 反映結果</Card.Title>
+                    <Card.Title fontSize="md">
+                      Google Calendar 反映結果
+                    </Card.Title>
                   </Card.Header>
                   <Card.Body>
                     <List.Root gap={2}>
@@ -375,7 +378,9 @@ export function ResultStep({
                         <List.Item key={eventItem.id}>
                           <HStack justify="space-between" align="start" gap={3}>
                             <Stack gap={1}>
-                              <Text fontWeight="medium">{eventItem.summary}</Text>
+                              <Text fontWeight="medium">
+                                {eventItem.summary}
+                              </Text>
                               <Text fontSize="sm" color="fg.muted">
                                 {formatDateTime(
                                   eventItem.startAt,
@@ -460,7 +465,9 @@ export function ResultStep({
                     <List.Item key={item.workflowId}>
                       <HStack justify="space-between" align="start" gap={3}>
                         <Stack gap={0.5}>
-                          <Text fontWeight="medium">{toHistoryTitle(item)}</Text>
+                          <Text fontWeight="medium">
+                            {toHistoryTitle(item)}
+                          </Text>
                           <Text fontSize="xs" color="fg.muted">
                             {formatDateTime(item.createdAt, item.timezone)} /{" "}
                             {toStatusLabelFromRecord(item.status)}
