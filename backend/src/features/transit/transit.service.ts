@@ -2,11 +2,10 @@ import type {
   TransitQuery,
   TransitResult,
   TransitRoute,
-  TransitStep,
 } from "./transit.types";
 
 // ---------------------------------------------------------------------------
-// Routes API helpers
+// Google Routes API (DRIVE mode) helpers
 // ---------------------------------------------------------------------------
 
 const ROUTES_API_URL =
@@ -18,21 +17,15 @@ const ROUTES_API_URL =
  */
 const FIELD_MASK = [
   "routes.duration",
+  "routes.distanceMeters",
   "routes.legs.duration",
-  "routes.legs.steps.transitDetails",
-  "routes.legs.steps.travelMode",
+  "routes.legs.distanceMeters",
+  "routes.legs.startLocation",
+  "routes.legs.endLocation",
   "routes.legs.steps.navigationInstruction",
   "routes.legs.steps.localizedValues",
-  "routes.legs.departureTime",
-  "routes.legs.arrivalTime",
-  "routes.localizedValues",
+  "routes.legs.steps.travelMode",
 ].join(",");
-
-/** Format an ISO-8601 datetime to RFC 3339 (what Routes API expects). */
-function toRfc3339(iso: string): string {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toISOString();
-}
 
 /** "123s" → number of seconds. */
 function parseDurationSeconds(dur: unknown): number {
@@ -43,16 +36,17 @@ function parseDurationSeconds(dur: unknown): number {
   return 0;
 }
 
-/** Format a datetime string to "H:mm" display (JST). */
-function toDisplayTime(iso: string | undefined): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  // JST = UTC+9
-  const jst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+/** JST helper: add minutes to "now" and format as "H:mm". */
+function jstTimeAfterMinutes(minutes: number): string {
+  const jst = new Date(Date.now() + 9 * 60 * 60 * 1000 + minutes * 60 * 1000);
   const h = jst.getUTCHours();
   const m = jst.getUTCMinutes().toString().padStart(2, "0");
   return `${h}:${m}`;
+}
+
+/** JST "now" as "H:mm". */
+function jstNowHHmm(): string {
+  return jstTimeAfterMinutes(0);
 }
 
 // ---------------------------------------------------------------------------
@@ -60,38 +54,31 @@ function toDisplayTime(iso: string | undefined): string {
 // ---------------------------------------------------------------------------
 
 /**
- * Look up transit directions via the **Google Routes API**
- * (`routes.googleapis.com`).
+ * Look up driving directions via the **Google Routes API** (DRIVE mode).
  *
- * This is the successor to the legacy Directions API.
+ * Google does not provide transit (train/bus) routing for Japan.
+ * We use DRIVE mode to estimate travel duration, then apply a multiplier
+ * (×1.3 by default) to approximate public-transport time.
+ *
  * Cost: covered by the $200/month free Google Maps Platform credit.
  *
  * @see https://developers.google.com/maps/documentation/routes/compute_route_directions
  *
- * @param apiKey - Google Maps Platform API key (restricted to Routes API).
+ * @param apiKey - Google Maps Platform API key (Routes API enabled).
  * @param query  - Origin / destination / optional arrival time.
  */
 export async function getTransitDirections(
   apiKey: string,
   query: TransitQuery,
 ): Promise<TransitResult> {
-  // biome-ignore lint/suspicious/noExplicitAny: Routes API request body
-  const body: Record<string, any> = {
-    origin: {
-      address: query.origin,
-    },
-    destination: {
-      address: query.destination,
-    },
-    travelMode: "TRANSIT",
+  const body: Record<string, unknown> = {
+    origin: { address: query.origin },
+    destination: { address: query.destination },
+    travelMode: "DRIVE",
     languageCode: "ja",
     regionCode: "JP",
-    computeAlternativeRoutes: true,
+    computeAlternativeRoutes: false,
   };
-
-  if (query.arrivalTime) {
-    body.arrivalTime = toRfc3339(query.arrivalTime);
-  }
 
   const res = await fetch(ROUTES_API_URL, {
     method: "POST",
@@ -111,61 +98,53 @@ export async function getTransitDirections(
   // biome-ignore lint/suspicious/noExplicitAny: Routes API response
   const data = (await res.json()) as any;
 
-  if (!data.routes || !Array.isArray(data.routes)) {
+  if (!data.routes || !Array.isArray(data.routes) || data.routes.length === 0) {
     return { routes: [], bestRoute: null };
   }
 
+  // Multiplier to approximate public-transport time from driving time.
+  // Trains in Japan are often comparable or faster than driving, but
+  // walks + waits add overhead. 1.3× is a conservative estimate.
+  const TRANSIT_MULTIPLIER = 1.3;
+
+  // biome-ignore lint/suspicious/noExplicitAny: Routes API route object
   const routes: TransitRoute[] = data.routes
     // biome-ignore lint/suspicious/noExplicitAny: Routes API route object
     .map((route: any): TransitRoute | null => {
       const leg = route.legs?.[0];
       if (!leg) return null;
 
-      // biome-ignore lint/suspicious/noExplicitAny: Routes API step
-      const steps: TransitStep[] = (leg.steps ?? []).map((step: any) => {
-        const td = step.transitDetails;
-        const mode: string = (step.travelMode as string) ?? "UNKNOWN";
+      const rawDurationSec = parseDurationSeconds(
+        route.duration ?? leg.duration,
+      );
+      const estimatedMinutes = Math.ceil(
+        (rawDurationSec / 60) * TRANSIT_MULTIPLIER,
+      );
+      const distanceKm = Math.round(
+        ((route.distanceMeters ?? leg.distanceMeters ?? 0) as number) / 1000,
+      );
 
-        return {
-          mode,
-          instruction:
-            (step.navigationInstruction?.instructions as string)?.replace(
-              /<[^>]*>/g,
-              "",
-            ) ?? "",
-          durationMinutes: Math.ceil(
-            parseDurationSeconds(step.staticDuration ?? leg.duration) / 60,
-          ),
-          transitDetails: td
-            ? {
-                line:
-                  (td.transitLine?.nameShort as string) ??
-                  (td.transitLine?.name as string) ??
-                  "",
-                departureStop:
-                  (td.stopDetails?.departureStop?.name as string) ?? "",
-                arrivalStop:
-                  (td.stopDetails?.arrivalStop?.name as string) ?? "",
-                numStops: (td.stopCount as number) ?? 0,
-              }
-            : undefined,
-        } satisfies TransitStep;
-      });
+      const departureTime = jstNowHHmm();
+      const arrivalTime = jstTimeAfterMinutes(estimatedMinutes);
+
+      // biome-ignore lint/suspicious/noExplicitAny: Routes API step
+      const steps = (leg.steps ?? []).map((step: any) => ({
+        mode: "DRIVE" as const,
+        instruction:
+          (step.navigationInstruction?.instructions as string)?.replace(
+            /<[^>]*>/g,
+            "",
+          ) ?? "",
+        durationMinutes: Math.ceil(
+          parseDurationSeconds(step.staticDuration ?? step.duration) / 60,
+        ),
+      }));
 
       return {
-        departureTime:
-          toDisplayTime(leg.departureTime) ||
-          ((leg.localizedValues?.departureTime?.text as string) ?? ""),
-        arrivalTime:
-          toDisplayTime(leg.arrivalTime) ||
-          ((leg.localizedValues?.arrivalTime?.text as string) ?? ""),
-        durationMinutes: Math.ceil(
-          parseDurationSeconds(route.duration ?? leg.duration) / 60,
-        ),
-        summary:
-          (route.description as string) ??
-          (route.localizedValues?.duration?.text as string) ??
-          "",
+        departureTime,
+        arrivalTime,
+        durationMinutes: estimatedMinutes,
+        summary: `車で約${distanceKm}km（推定${estimatedMinutes}分・乗換含む概算）`,
         steps,
       };
     })
