@@ -4,6 +4,8 @@ import { D1Dialect } from "kysely-d1";
 import { getAllowedOrigins } from "./origins";
 
 const GOOGLE_CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.events";
+const GOOGLE_CALENDAR_APP_CREATED_SCOPE =
+  "https://www.googleapis.com/auth/calendar.app.created";
 const authDbClients = new WeakMap<
   D1Database,
   Kysely<Record<string, unknown>>
@@ -116,7 +118,13 @@ export function createAuth(env: Env, request?: Request) {
         ),
         accessType: "offline",
         prompt: "select_account consent",
-        scope: ["openid", "email", "profile", GOOGLE_CALENDAR_SCOPE],
+        scope: [
+          "openid",
+          "email",
+          "profile",
+          GOOGLE_CALENDAR_SCOPE,
+          GOOGLE_CALENDAR_APP_CREATED_SCOPE,
+        ],
       },
     },
     account: {

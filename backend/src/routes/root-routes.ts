@@ -11,6 +11,7 @@ export function registerRootRoutes(app: App): void {
         "POST /transit/directions",
         "POST /tasks/decompose",
         "POST /workflows/decompose",
+        "GET /workflows/history",
         "GET /workflows/:id",
       ],
     });

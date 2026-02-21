@@ -14,6 +14,48 @@ export type SessionResponse = {
 } | null;
 
 const defaultLocalApiBaseUrl = "http://localhost:8787";
+const authErrorQueryKeys = ["error", "error_description", "state"];
+const oauthErrorMessageByCode: Record<string, string> = {
+  access_denied:
+    "Googleログインがキャンセルされたか、必要な権限が拒否されました。もう一度ログインしてください。",
+  invalid_request:
+    "認証リクエストが不正です。ページを再読み込みして再試行してください。",
+  unauthorized_client:
+    "このアプリの認可設定に問題があります。管理者へ連絡してください。",
+  unsupported_response_type:
+    "認証フローの種類が不正です。時間をおいて再試行してください。",
+  invalid_scope:
+    "必要なGoogle権限が不足しています。再度ログインして権限を許可してください。",
+  server_error:
+    "Google認証サーバーでエラーが発生しました。時間をおいて再試行してください。",
+  temporarily_unavailable:
+    "Google認証サーバーが一時的に利用できません。時間をおいて再試行してください。",
+  oauth_code_missing:
+    "認証コードを受け取れませんでした。もう一度ログインしてください。",
+  oauth_code_verification_failed:
+    "OAuth認証コードの検証に失敗しました。時間をおいて再試行してください。",
+  state_mismatch:
+    "認証セッションの検証に失敗しました。ページを再読み込みして再度ログインしてください。",
+  please_restart_the_process:
+    "認証セッションが失効した可能性があります。最初からログインをやり直してください。",
+  user_info_is_missing:
+    "Googleアカウント情報を取得できませんでした。時間をおいて再試行してください。",
+  email_is_missing: "Googleアカウントのメール情報を取得できませんでした。",
+  name_is_missing: "Googleアカウントの表示名を取得できませんでした。",
+  "email_doesn't_match":
+    "ログイン中ユーザーとGoogleアカウントのメールが一致しませんでした。",
+  account_already_linked_to_different_user:
+    "このGoogleアカウントは別ユーザーに連携済みです。",
+  unable_to_link_account:
+    "Googleアカウントの連携に失敗しました。時間をおいて再試行してください。",
+  banned: "このアカウントでは現在ログインできません。",
+};
+
+export type AuthCallbackError = {
+  code: string;
+  description: string | null;
+  message: string;
+};
 
 export class AuthApiError extends Error {
   status: number;
@@ -69,6 +111,80 @@ function authEndpoint(path: string): string {
   return `${resolveApiBaseUrl()}/api/auth${path}`;
 }
 
+function stripAuthErrorParamsFromUrl(rawUrl: string): string {
+  try {
+    const url = new URL(rawUrl);
+    const hasAuthErrorParam =
+      url.searchParams.has("error") ||
+      url.searchParams.has("error_description");
+    if (!hasAuthErrorParam) {
+      return rawUrl;
+    }
+
+    for (const key of authErrorQueryKeys) {
+      url.searchParams.delete(key);
+    }
+    return url.toString();
+  } catch {
+    return rawUrl;
+  }
+}
+
+function normalizeOAuthErrorCode(code: string): string {
+  return code.trim().toLowerCase();
+}
+
+function toAuthCallbackErrorMessage(
+  code: string,
+  description: string | null,
+): string {
+  const normalizedCode = normalizeOAuthErrorCode(code);
+  const knownMessage = oauthErrorMessageByCode[normalizedCode];
+  if (knownMessage) {
+    return knownMessage;
+  }
+
+  const detail =
+    description && description.trim().length > 0
+      ? ` 詳細: ${description.trim()}`
+      : "";
+  return `Googleログインに失敗しました (${code}).${detail}`;
+}
+
+export function consumeAuthCallbackErrorFromUrl(
+  currentUrl: string,
+): AuthCallbackError | null {
+  try {
+    const url = new URL(currentUrl);
+    const code = url.searchParams.get("error")?.trim();
+    if (!code) {
+      return null;
+    }
+
+    const description = url.searchParams.get("error_description");
+    for (const key of authErrorQueryKeys) {
+      url.searchParams.delete(key);
+    }
+
+    if (typeof window !== "undefined") {
+      const cleanedPath = `${url.pathname}${url.search}${url.hash}`;
+      window.history.replaceState(
+        window.history.state,
+        document.title,
+        cleanedPath,
+      );
+    }
+
+    return {
+      code,
+      description,
+      message: toAuthCallbackErrorMessage(code, description),
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function toApiError(
   response: Response,
   fallbackMessage: string,
@@ -110,6 +226,8 @@ export async function getSession(): Promise<SessionResponse> {
 }
 
 export async function signInWithGoogle(callbackUrl: string): Promise<void> {
+  const sanitizedCallbackUrl = stripAuthErrorParamsFromUrl(callbackUrl);
+
   const response = await fetch(authEndpoint("/sign-in/social"), {
     method: "POST",
     credentials: "include",
@@ -118,7 +236,8 @@ export async function signInWithGoogle(callbackUrl: string): Promise<void> {
     },
     body: JSON.stringify({
       provider: "google",
-      callbackURL: callbackUrl,
+      callbackURL: sanitizedCallbackUrl,
+      errorCallbackURL: sanitizedCallbackUrl,
       disableRedirect: true,
     }),
   });
