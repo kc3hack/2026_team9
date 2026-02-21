@@ -7,6 +7,7 @@ interface Env {
   GOOGLE_MAPS_API_KEY: string;
   BETTER_AUTH_SECRET: string;
   BETTER_AUTH_URL?: string;
+  AUTH_COOKIE_PREFIX?: string;
   FRONTEND_ORIGINS?: string;
   AUTH_COOKIE_DOMAIN?: string;
 }

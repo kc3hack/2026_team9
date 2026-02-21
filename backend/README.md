@@ -69,6 +69,7 @@ pnpm dev
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
 - `BETTER_AUTH_URL` (`http://localhost:8787` など、Wrangler dev サーバーのポートと一致させる。既定の dev スクリプトは `--port 8787`)
+- `AUTH_COOKIE_PREFIX`（任意。環境ごとに Cookie 名を分離したい場合に設定）
 
 Cloudflare 環境 (`main/develop/pr`) へ反映する secret ファイルは `backend/.secrets/*.env` を使います。  
 テンプレートは以下です。
@@ -91,6 +92,7 @@ Cloudflare 環境 (`main/develop/pr`) へ反映する secret ファイルは `ba
 
 - `FRONTEND_ORIGINS`
 - `AUTH_COOKIE_DOMAIN`
+- `AUTH_COOKIE_PREFIX`
 - `BETTER_AUTH_URL`
 
 設定先:
