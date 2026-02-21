@@ -75,224 +75,109 @@ export default function DashboardPage() {
   }, [state.data]);
 
   return (
-    <Box
-      minH="100dvh"
-      bg="linear-gradient(180deg, #f7f7fb 0%, #eef2f7 50%, #f6fbf8 100%)"
-      position="relative"
-      overflow="hidden"
-    >
-      <Box
-        position="absolute"
-        inset="0"
-        bgGradient="radial(circle at top left, rgba(39,97,245,0.18), transparent 55%)"
-        pointerEvents="none"
-      />
-      <Box
-        position="absolute"
-        inset="0"
-        bgGradient="radial(circle at 80% 20%, rgba(7,214,152,0.12), transparent 60%)"
-        pointerEvents="none"
-      />
-      <Box
-        position="absolute"
-        inset="0"
-        opacity={0.12}
-        backgroundImage="linear-gradient(rgba(12,19,28,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(12,19,28,0.08) 1px, transparent 1px)"
-        backgroundSize="36px 36px"
-        pointerEvents="none"
-      />
-
-      <Container maxW="5xl" px={{ base: 4, md: 8 }} py={{ base: 10, md: 14 }}>
-        <Stack gap={{ base: 8, md: 12 }}>
-          <Stack gap={4}>
-            <HStack gap={3}>
-              <Badge colorPalette="green" variant="subtle">
-                Morning Flow
-              </Badge>
-              <Badge colorPalette="blue" variant="outline">
-                Dashboard
-              </Badge>
-            </HStack>
-            <Heading size="2xl" lineHeight="1.1" color="gray.900">
-              朝準備ダッシュボード
-            </Heading>
-            <Text fontSize="lg" color="gray.600">
-              出発時刻から逆算して、次にやることと残り時間を整える。
-            </Text>
-          </Stack>
-
-          <Grid
-            templateColumns={{ base: "1fr", md: "1.1fr 0.9fr" }}
-            gap={{ base: 6, md: 8 }}
+    <Box minH="100dvh" bg="gray.50">
+      <Container maxW="6xl" px={{ base: 4, md: 8 }} py={{ base: 8, md: 10 }}>
+        <Stack gap={6}>
+          <Flex
+            justify="space-between"
+            align={{ base: "start", md: "center" }}
+            direction={{ base: "column", md: "row" }}
+            gap={3}
           >
-            <Box
-              bg="white"
-              borderRadius="3xl"
-              p={{ base: 6, md: 8 }}
-              borderWidth="1px"
-              borderColor="gray.200"
-              boxShadow="0 20px 50px rgba(22, 30, 45, 0.08)"
-            >
-              <Stack gap={6}>
-                <Flex justify="space-between" align="center">
-                  <Stack gap={1}>
-                    <Text fontSize="sm" color="gray.500">
-                      今日
-                    </Text>
-                    <Heading size="lg" color="gray.900">
-                      {state.data?.date ?? "----/--/--"}
-                    </Heading>
-                  </Stack>
-                  <Badge
-                    colorPalette={state.status === "error" ? "red" : "green"}
-                    variant="subtle"
-                  >
-                    {state.status === "loading"
-                      ? "読み込み中"
-                      : state.status === "error"
-                        ? "読み込み失敗"
-                        : "同期済み"}
-                  </Badge>
-                </Flex>
-
-                <Grid
-                  templateColumns={{ base: "1fr", sm: "repeat(3, 1fr)" }}
-                  gap={4}
-                >
-                  <Box
-                    borderWidth="1px"
-                    borderRadius="2xl"
-                    p={4}
-                    borderColor="gray.200"
-                    bg="gray.50"
-                  >
-                    <Text fontSize="xs" color="gray.500">
-                      起きる時間
-                    </Text>
-                    <Heading size="md" color="gray.900">
-                      {state.data?.wakeUpTime ?? "--:--"}
-                    </Heading>
-                  </Box>
-                  <Box
-                    borderWidth="1px"
-                    borderRadius="2xl"
-                    p={4}
-                    borderColor="gray.200"
-                    bg="gray.50"
-                  >
-                    <Text fontSize="xs" color="gray.500">
-                      出発時間
-                    </Text>
-                    <Heading size="md" color="gray.900">
-                      {state.data?.departTime ?? "--:--"}
-                    </Heading>
-                  </Box>
-                  <Box
-                    borderWidth="1px"
-                    borderRadius="2xl"
-                    p={4}
-                    borderColor="gray.200"
-                    bg="gray.50"
-                  >
-                    <Text fontSize="xs" color="gray.500">
-                      最初の予定
-                    </Text>
-                    <Text fontWeight="semibold" color="gray.900">
-                      {state.data?.earliestEvent?.title ?? "未登録"}
-                    </Text>
-                    <Text fontSize="sm" color="gray.500">
-                      {state.data?.earliestEvent?.startTime ?? "--:--"}{" "}
-                      {state.data?.earliestEvent?.location ?? ""}
-                    </Text>
-                  </Box>
-                </Grid>
-
-                <Box
-                  borderWidth="1px"
-                  borderRadius="2xl"
-                  p={5}
-                  bg="gray.50"
-                  borderColor="gray.200"
-                >
-                  <Text fontSize="sm" color="gray.500">
-                    ルーティン概要
-                  </Text>
-                  <Text fontWeight="semibold" color="gray.900">
-                    {state.data?.routine.length ?? 0} ステップを自動配置
-                  </Text>
-                  <Text fontSize="sm" color="gray.500">
-                    更新: {state.data?.updatedAt ?? "--"}
-                  </Text>
-                </Box>
-              </Stack>
-            </Box>
-
-            <Box
-              bg="white"
-              color="gray.900"
-              borderRadius="3xl"
-              p={{ base: 6, md: 8 }}
-              borderWidth="1px"
-              borderColor="gray.200"
-              boxShadow="0 20px 50px rgba(22, 30, 45, 0.08)"
-            >
-              <Stack gap={6}>
-                <Heading size="md">今日の変更</Heading>
-                {state.data?.overrides?.length ? (
-                  state.data.overrides.map((override) => (
-                    <Box
-                      key={override.date}
-                      borderWidth="1px"
-                      borderColor="gray.200"
-                      borderRadius="2xl"
-                      p={4}
-                      bg="gray.50"
-                    >
-                      <Text fontSize="sm" color="gray.500">
-                        {override.date}
-                      </Text>
-                      <Text fontWeight="semibold">
-                        {override.note ?? "特記事項なし"}
-                      </Text>
-                      <Stack mt={3} gap={2}>
-                        {override.steps.map((step) => (
-                          <HStack key={step.id} justify="space-between">
-                            <Text fontSize="sm">{step.label}</Text>
-                            <Badge colorPalette="yellow" variant="subtle">
-                              追加
-                            </Badge>
-                          </HStack>
-                        ))}
-                      </Stack>
-                    </Box>
-                  ))
-                ) : (
-                  <Text fontSize="sm" color="gray.500">
-                    今日は標準ルーティンで運用中。
-                  </Text>
-                )}
-              </Stack>
-            </Box>
-          </Grid>
-
-          <Box
-            bg="white"
-            borderRadius="3xl"
-            p={{ base: 6, md: 8 }}
-            borderWidth="1px"
-            borderColor="gray.200"
-            boxShadow="0 20px 50px rgba(22, 30, 45, 0.08)"
-          >
-            <Stack gap={6}>
-              <HStack justify="space-between">
-                <Heading size="md" color="gray.900">
-                  タイムライン
-                </Heading>
-                <Badge colorPalette="green" variant="outline">
-                  出発までの逆算
+            <Stack gap={1}>
+              <HStack gap={2}>
+                <Badge colorPalette="green" variant="subtle">
+                  Morning OS
+                </Badge>
+                <Badge colorPalette="blue" variant="outline">
+                  Widgets
                 </Badge>
               </HStack>
+              <Heading size="lg" color="gray.900">
+                朝ダッシュボード
+              </Heading>
+              <Text color="gray.600" fontSize="sm">
+                必要な情報だけをウィジェットで一覧化
+              </Text>
+            </Stack>
+            <Badge
+              colorPalette={state.status === "error" ? "red" : "green"}
+              variant="subtle"
+            >
+              {state.status === "loading"
+                ? "読み込み中"
+                : state.status === "error"
+                  ? "読み込み失敗"
+                  : "同期済み"}
+            </Badge>
+          </Flex>
 
+          <Grid templateColumns={{ base: "1fr", md: "repeat(6, 1fr)" }} gap={4}>
+            <WidgetCard title="日付" colSpan={{ base: 1, md: 2 }}>
+              <Heading size="md">{state.data?.date ?? "----/--/--"}</Heading>
+              <Text fontSize="sm" color="gray.500">
+                更新: {state.data?.updatedAt ?? "--"}
+              </Text>
+            </WidgetCard>
+
+            <WidgetCard title="起床" colSpan={{ base: 1, md: 1 }}>
+              <Heading size="md">{state.data?.wakeUpTime ?? "--:--"}</Heading>
+            </WidgetCard>
+
+            <WidgetCard title="出発" colSpan={{ base: 1, md: 1 }}>
+              <Heading size="md">{state.data?.departTime ?? "--:--"}</Heading>
+            </WidgetCard>
+
+            <WidgetCard title="予定数" colSpan={{ base: 1, md: 2 }}>
+              <Heading size="md">
+                {state.data?.routine.length ?? 0} ステップ
+              </Heading>
+              <Text fontSize="sm" color="gray.500">
+                逆算タイムラインを自動生成
+              </Text>
+            </WidgetCard>
+
+            <WidgetCard title="最初の予定" colSpan={{ base: 1, md: 3 }}>
+              <Text fontWeight="semibold" color="gray.900">
+                {state.data?.earliestEvent?.title ?? "未登録"}
+              </Text>
+              <Text fontSize="sm" color="gray.500">
+                {state.data?.earliestEvent?.startTime ?? "--:--"}
+                {state.data?.earliestEvent?.location
+                  ? ` ・ ${state.data.earliestEvent.location}`
+                  : ""}
+              </Text>
+            </WidgetCard>
+
+            <WidgetCard title="今日の変更" colSpan={{ base: 1, md: 3 }}>
+              {state.data?.overrides?.length ? (
+                <Stack gap={2}>
+                  {state.data.overrides.map((override) => (
+                    <Box
+                      key={override.date}
+                      p={3}
+                      borderWidth="1px"
+                      borderColor="gray.200"
+                      borderRadius="xl"
+                      bg="gray.50"
+                    >
+                      <Text fontSize="xs" color="gray.500">
+                        {override.date}
+                      </Text>
+                      <Text fontSize="sm" fontWeight="semibold">
+                        {override.note ?? "特記事項なし"}
+                      </Text>
+                    </Box>
+                  ))}
+                </Stack>
+              ) : (
+                <Text fontSize="sm" color="gray.500">
+                  今日は標準ルーティンです
+                </Text>
+              )}
+            </WidgetCard>
+
+            <WidgetCard title="タイムライン" colSpan={{ base: 1, md: 6 }}>
               {routine.length === 0 ? (
                 state.status === "error" ? (
                   <Text color="red.500">
@@ -302,30 +187,33 @@ export default function DashboardPage() {
                   <Text color="gray.500">データを読み込んでいます。</Text>
                 )
               ) : (
-                <Stack gap={3}>
+                <Grid
+                  templateColumns={{ base: "1fr", md: "repeat(2, 1fr)" }}
+                  gap={3}
+                >
                   {routine.map((step) => (
                     <Flex
                       key={step.id}
                       justify="space-between"
                       align="center"
                       borderWidth="1px"
-                      borderRadius="2xl"
-                      px={4}
-                      py={3}
                       borderColor="gray.200"
+                      borderRadius="xl"
+                      px={3}
+                      py={2}
                       bg="gray.50"
                     >
-                      <HStack gap={3}>
+                      <HStack gap={2}>
                         <Badge
                           colorPalette={step.isOverride ? "yellow" : "green"}
                         >
                           {step.isOverride ? "変更" : "基本"}
                         </Badge>
-                        <Text fontWeight="semibold" color="gray.900">
+                        <Text fontSize="sm" fontWeight="semibold">
                           {step.label}
                         </Text>
                       </HStack>
-                      <Text fontWeight="semibold" color="gray.900">
+                      <Text fontWeight="bold">
                         {state.data
                           ? toClockString(
                               state.data.departTime,
@@ -335,12 +223,50 @@ export default function DashboardPage() {
                       </Text>
                     </Flex>
                   ))}
-                </Stack>
+                </Grid>
               )}
-            </Stack>
-          </Box>
+            </WidgetCard>
+          </Grid>
         </Stack>
       </Container>
+    </Box>
+  );
+}
+
+function WidgetCard({
+  title,
+  children,
+  colSpan,
+}: {
+  title: string;
+  children: React.ReactNode;
+  colSpan: { base: number; md: number };
+}) {
+  return (
+    <Box
+      gridColumn={{
+        base: "auto",
+        md: `span ${colSpan.md} / span ${colSpan.md}`,
+      }}
+      bg="white"
+      borderWidth="1px"
+      borderColor="gray.200"
+      borderRadius="2xl"
+      p={4}
+      minH="120px"
+      boxShadow="sm"
+    >
+      <Stack gap={3} h="100%">
+        <Text
+          fontSize="xs"
+          color="gray.500"
+          textTransform="uppercase"
+          letterSpacing="0.06em"
+        >
+          {title}
+        </Text>
+        <Box>{children}</Box>
+      </Stack>
     </Box>
   );
 }

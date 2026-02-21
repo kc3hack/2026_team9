@@ -124,10 +124,8 @@ export async function getTodayEvents(
 
   const accessToken = await getGoogleAccessToken(env, userId);
   if (!accessToken) {
-    console.error("[Calendar] No access token for user:", userId);
     return { date, events: [], earliestEvent: null };
   }
-  console.log("[Calendar] Got access token for user:", userId);
 
   const timeMin = new Date(`${date}T00:00:00+09:00`).toISOString();
   const timeMax = new Date(`${date}T23:59:59+09:00`).toISOString();
@@ -145,14 +143,8 @@ export async function getTodayEvents(
     { headers: { Authorization: `Bearer ${accessToken}` } },
   );
 
-  console.log(
-    "[Calendar] Request:",
-    `timeMin=${timeMin}`,
-    `timeMax=${timeMax}`,
-  );
   if (!res.ok) {
-    const errText = await res.text();
-    console.error("Google Calendar API error:", res.status, errText);
+    console.error("Google Calendar API error:", res.status, await res.text());
     return { date, events: [], earliestEvent: null };
   }
 
