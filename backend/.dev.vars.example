@@ -7,3 +7,4 @@ BETTER_AUTH_URL=http://localhost:8787
 GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
 BETTER_AUTH_SECRET=replace-with-random-long-secret
+GOOGLE_MAPS_API_KEY=your-google-maps-api-key
