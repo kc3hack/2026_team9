@@ -3,13 +3,13 @@ import type {
   TaskDecomposeResult,
   TaskSubtask,
 } from "./task-decompose.types";
+import { normalizeTaskTimezone } from "./task-timezone";
 
 const AI_MODEL = "@cf/meta/llama-3.1-8b-instruct-fp8";
 const DEFAULT_MAX_STEPS = 6;
 const MIN_DURATION_MINUTES = 15;
 const MAX_DURATION_MINUTES = 240;
 const DEFAULT_INFERRED_DEADLINE_DAYS = 7;
-const DEFAULT_PLANNING_TIMEZONE = "Asia/Tokyo";
 
 function asStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) {
@@ -74,14 +74,6 @@ function sanitizeDuration(value: unknown, fallback: number): number {
 
 function fallbackSummary(task: string): string {
   return `"${task}" を実行可能な単位へ分解した計画です。`;
-}
-
-function normalizeTimezone(timezone: string | undefined): string {
-  if (!timezone || timezone.trim().length === 0) {
-    return DEFAULT_PLANNING_TIMEZONE;
-  }
-
-  return timezone.trim();
 }
 
 function formatPromptDateInTimezone(date: Date, timezone: string): string {
@@ -260,7 +252,7 @@ function normalizeResult(
 
 function createPrompt(payload: TaskDecomposeRequest): string {
   const maxSteps = payload.maxSteps ?? DEFAULT_MAX_STEPS;
-  const planningTimezone = normalizeTimezone(payload.timezone);
+  const planningTimezone = normalizeTaskTimezone(payload.timezone);
   const now = new Date();
 
   const deadlineGuidance = payload.deadline

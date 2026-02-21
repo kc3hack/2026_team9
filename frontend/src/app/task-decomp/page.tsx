@@ -37,8 +37,9 @@ import {
   ResultStep,
   RunningStep,
 } from "./components/task-decomp-steps";
-import { DEFAULT_USER_TIMEZONE, STEP_ITEMS } from "./constants";
+import { STEP_ITEMS } from "./constants";
 import {
+  detectBrowserTimezone,
   formatDateTime,
   needsCalendarReauth,
   toDeadlineIso,
@@ -105,6 +106,7 @@ export default function TaskDecompPage() {
   const loadedDraftUserIdRef = useRef<string | null>(null);
 
   const signedInUser = useMemo(() => session?.user ?? null, [session]);
+  const userTimezone = useMemo(() => detectBrowserTimezone(), []);
   const statusLabel = useMemo(
     () => toStatusLabel(phase, workflowStatus, record),
     [phase, workflowStatus, record],
@@ -371,8 +373,7 @@ export default function TaskDecompPage() {
     const safeMaxSteps = Number.isFinite(parsedMaxSteps)
       ? Math.min(Math.max(Math.trunc(parsedMaxSteps), 1), 12)
       : 6;
-    const timezone =
-      Intl.DateTimeFormat().resolvedOptions().timeZone ?? DEFAULT_USER_TIMEZONE;
+    const timezone = userTimezone;
 
     setPhase("starting");
     setErrorMessage(null);
@@ -539,6 +540,7 @@ export default function TaskDecompPage() {
         phase={phase}
         statusLabel={statusLabel}
         record={record}
+        userTimezone={userTimezone}
         displayErrorMessage={displayErrorMessage}
         onStartNewTask={handleStartNewTask}
       />
@@ -695,7 +697,7 @@ export default function TaskDecompPage() {
                                   <Text fontSize="xs" color="fg.muted">
                                     {formatDateTime(
                                       item.createdAt,
-                                      item.timezone,
+                                      item.timezone ?? userTimezone,
                                     )}{" "}
                                     / {toStatusLabelFromRecord(item.status)}
                                   </Text>

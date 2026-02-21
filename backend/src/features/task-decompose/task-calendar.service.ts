@@ -3,6 +3,7 @@ import type {
   TaskDecomposeRequest,
   TaskDecomposeResult,
 } from "./task-decompose.types";
+import { normalizeTaskTimezone } from "./task-timezone";
 import type {
   CalendarCreatedEvent,
   CalendarSyncResult,
@@ -296,7 +297,7 @@ export async function createCalendarEvents(
   input: CreateCalendarEventsInput,
 ): Promise<CalendarSyncResult> {
   const accessToken = await getGoogleAccessToken(env, input.userId);
-  const timezone = input.request.timezone ?? "UTC";
+  const timezone = normalizeTaskTimezone(input.request.timezone);
   const calendarId = PRIMARY_CALENDAR_ID;
   const overallTaskName = toOverallTaskName(
     input.request.task,
