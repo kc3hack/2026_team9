@@ -51,6 +51,23 @@ function buildEventSummary(
   return `[${index + 1}/${totalCount}] ${normalizedSubtask} | ${normalizedOverall}`;
 }
 
+function toOverallTaskName(
+  requestTask: string,
+  breakdown: TaskDecomposeResult,
+): string {
+  const summary = toSingleLine(breakdown.summary ?? "");
+  if (summary.length > 0) {
+    return summary;
+  }
+
+  const goal = toSingleLine(breakdown.goal ?? "");
+  if (goal.length > 0) {
+    return goal;
+  }
+
+  return toSingleLine(requestTask);
+}
+
 function safeDate(value: string, fallback: Date): Date {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
@@ -281,6 +298,10 @@ export async function createCalendarEvents(
   const accessToken = await getGoogleAccessToken(env, input.userId);
   const timezone = input.request.timezone ?? "UTC";
   const calendarId = PRIMARY_CALENDAR_ID;
+  const overallTaskName = toOverallTaskName(
+    input.request.task,
+    input.breakdown,
+  );
 
   const createdEvents: CalendarCreatedEvent[] = [];
   const totalCount = Math.max(input.breakdown.subtasks.length, 1);
@@ -296,7 +317,7 @@ export async function createCalendarEvents(
     const eventId = await createStableEventId(input.workflowId, index);
     const summary = buildEventSummary(
       subtask.title,
-      input.request.task,
+      overallTaskName,
       index,
       totalCount,
     );

@@ -153,14 +153,14 @@ export function toStatusLabelFromRecord(
 }
 
 export function toHistoryTitle(record: WorkflowRecord): string {
-  const goal = record.llmOutput?.goal?.trim();
-  if (goal && goal.length > 0) {
-    return goal;
-  }
-
   const summary = record.llmOutput?.summary?.trim();
   if (summary && summary.length > 0) {
     return summary;
+  }
+
+  const goal = record.llmOutput?.goal?.trim();
+  if (goal && goal.length > 0) {
+    return goal;
   }
 
   return record.taskInput;

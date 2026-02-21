@@ -51,12 +51,7 @@ import {
   toWorkflowProgress,
   viewIndex,
 } from "./helpers";
-import type {
-  ResultTab,
-  RunPhase,
-  TransitionDirection,
-  ViewMode,
-} from "./types";
+import type { RunPhase, TransitionDirection, ViewMode } from "./types";
 
 export default function TaskDecompPage() {
   const [session, setSession] = useState<SessionResponse>(null);
@@ -79,7 +74,6 @@ export default function TaskDecompPage() {
   const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
   const [dotTick, setDotTick] = useState(0);
 
-  const [resultTab, setResultTab] = useState<ResultTab>("result");
   const [viewMode, setViewMode] = useState<ViewMode>("auth");
   const [transitionDirection, setTransitionDirection] =
     useState<TransitionDirection>("forward");
@@ -334,7 +328,6 @@ export default function TaskDecompPage() {
     setRecord(item);
     setWorkflowStatus(null);
     setErrorMessage(null);
-    setResultTab("result");
 
     if (item.status === "completed") {
       setPhase("completed");
@@ -356,7 +349,6 @@ export default function TaskDecompPage() {
     setWorkflowStatus(null);
     setRecord(null);
     setErrorMessage(null);
-    setResultTab("result");
   };
 
   const handleSignOut = async () => {
@@ -456,13 +448,9 @@ export default function TaskDecompPage() {
       <ResultStep
         phase={phase}
         statusLabel={statusLabel}
-        resultTab={resultTab}
-        onResultTabChange={setResultTab}
         record={record}
-        history={history}
         displayErrorMessage={displayErrorMessage}
         onStartNewTask={handleStartNewTask}
-        onSelectHistory={handleSelectHistory}
       />
     );
   })();

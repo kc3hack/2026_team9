@@ -7,4 +7,3 @@ export type ErrorAction =
   | "signOut";
 export type ViewMode = "auth" | "compose" | "running" | "result";
 export type TransitionDirection = "forward" | "backward";
-export type ResultTab = "result" | "history";
