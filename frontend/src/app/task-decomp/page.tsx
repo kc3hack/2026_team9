@@ -629,9 +629,9 @@ export default function TaskDecompPage() {
                       )}
                     </Drawer.Body>
                     <Drawer.Footer>
-                      <Drawer.CloseTrigger asChild>
+                      <Drawer.ActionTrigger asChild>
                         <Button variant="outline">閉じる</Button>
-                      </Drawer.CloseTrigger>
+                      </Drawer.ActionTrigger>
                     </Drawer.Footer>
                   </Drawer.Content>
                 </Drawer.Positioner>
