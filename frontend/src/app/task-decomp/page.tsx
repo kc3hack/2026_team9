@@ -15,6 +15,7 @@ import {
   Steps,
   Text,
 } from "@chakra-ui/react";
+import NextLink from "next/link";
 import type { FormEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -477,6 +478,15 @@ export default function TaskDecompPage() {
               目標を今日の実行に落とし込むためのフローです。
             </Text>
           </Stack>
+
+          <HStack gap={2} flexWrap="wrap">
+            <Button asChild size="xs" variant="outline">
+              <NextLink href="/">トップへ</NextLink>
+            </Button>
+            <Button asChild size="xs" variant="outline">
+              <NextLink href="/dashboard">ダッシュボードへ</NextLink>
+            </Button>
+          </HStack>
 
           <Stack gap={3}>
             <Steps.Root
