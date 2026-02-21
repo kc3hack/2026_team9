@@ -34,6 +34,7 @@ function required(name: string, value: string | undefined): string {
 
 export function createAuth(env: Env, request?: Request) {
   const configuredBaseURL = env.BETTER_AUTH_URL?.trim();
+  const configuredCookiePrefix = env.AUTH_COOKIE_PREFIX?.trim();
   const runtimeOrigin = (() => {
     try {
       return request ? new URL(request.url).origin : undefined;
@@ -76,6 +77,24 @@ export function createAuth(env: Env, request?: Request) {
     Boolean(env.AUTH_COOKIE_DOMAIN) &&
     hostForCookieValidation !== "localhost" &&
     hostForCookieValidation !== "127.0.0.1";
+  const advancedOptions =
+    enableCrossSubDomainCookies || configuredCookiePrefix
+      ? {
+          ...(configuredCookiePrefix
+            ? {
+                cookiePrefix: configuredCookiePrefix,
+              }
+            : {}),
+          ...(enableCrossSubDomainCookies
+            ? {
+                crossSubDomainCookies: {
+                  enabled: true,
+                  domain: env.AUTH_COOKIE_DOMAIN,
+                },
+              }
+            : {}),
+        }
+      : undefined;
 
   return betterAuth({
     secret: required("BETTER_AUTH_SECRET", env.BETTER_AUTH_SECRET),
@@ -103,13 +122,6 @@ export function createAuth(env: Env, request?: Request) {
     account: {
       encryptOAuthTokens: true,
     },
-    advanced: enableCrossSubDomainCookies
-      ? {
-          crossSubDomainCookies: {
-            enabled: true,
-            domain: env.AUTH_COOKIE_DOMAIN,
-          },
-        }
-      : undefined,
+    advanced: advancedOptions,
   });
 }

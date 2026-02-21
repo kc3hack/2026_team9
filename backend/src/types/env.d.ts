@@ -4,6 +4,7 @@ interface Env {
   GOOGLE_CLIENT_SECRET: string;
   BETTER_AUTH_SECRET: string;
   BETTER_AUTH_URL?: string;
+  AUTH_COOKIE_PREFIX?: string;
   FRONTEND_ORIGINS?: string;
   AUTH_COOKIE_DOMAIN?: string;
 }
