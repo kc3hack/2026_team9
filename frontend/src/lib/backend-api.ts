@@ -33,13 +33,28 @@ function endpoint(path: string): string {
 // Calendar
 // ---------------------------------------------------------------------------
 
-export async function fetchCalendarToday(): Promise<unknown> {
+export type CalendarTodayEvent = {
+  id: string;
+  summary: string;
+  location: string | null;
+  start: string;
+  end: string;
+  isAllDay: boolean;
+};
+
+export type CalendarTodayResponse = {
+  date: string;
+  events: CalendarTodayEvent[];
+  earliestEvent: CalendarTodayEvent | null;
+};
+
+export async function fetchCalendarToday(): Promise<CalendarTodayResponse> {
   const res = await fetch(endpoint("/calendar/today"), {
     credentials: "include",
   });
   if (!res.ok)
     throw new Error(`Calendar API: ${res.status} ${await res.text()}`);
-  return res.json();
+  return (await res.json()) as CalendarTodayResponse;
 }
 
 // ---------------------------------------------------------------------------

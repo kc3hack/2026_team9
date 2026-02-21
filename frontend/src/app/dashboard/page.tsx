@@ -3,6 +3,8 @@
 import {
   Badge,
   Box,
+  Button,
+  Code,
   Container,
   Flex,
   Grid,
@@ -11,13 +13,27 @@ import {
   Stack,
   Text,
 } from "@chakra-ui/react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { signInWithGoogle } from "@/lib/auth-api";
+import {
+  fetchCalendarToday,
+  type CalendarTodayEvent,
+  type CalendarTodayResponse,
+} from "@/lib/backend-api";
 import type { MorningDashboard } from "@/lib/morning-dashboard-api";
 import { getMorningDashboard } from "@/lib/morning-dashboard-api";
 
 type LoadState = {
   status: "loading" | "ready" | "error";
   data: MorningDashboard | null;
+};
+
+type CalendarApiState = {
+  status: "idle" | "loading" | "ready" | "error";
+  data: CalendarTodayResponse | null;
+  error: string | null;
+  durationMs: number | null;
+  fetchedAt: string | null;
 };
 
 function toClockString(baseTime: string, offsetMinutes: number): string {
@@ -37,11 +53,112 @@ function toClockString(baseTime: string, offsetMinutes: number): string {
   return `${displayHours}:${displayMinutes}`;
 }
 
+function toCalendarStatusLabel(status: CalendarApiState["status"]): string {
+  if (status === "loading") {
+    return "取得中";
+  }
+  if (status === "ready") {
+    return "取得成功";
+  }
+  if (status === "error") {
+    return "取得失敗";
+  }
+  return "未取得";
+}
+
+function toCalendarStatusColor(status: CalendarApiState["status"]): string {
+  if (status === "loading") {
+    return "yellow";
+  }
+  if (status === "ready") {
+    return "green";
+  }
+  if (status === "error") {
+    return "red";
+  }
+  return "gray";
+}
+
+function formatApiEventTime(event: CalendarTodayEvent): string {
+  if (event.isAllDay) {
+    return "終日";
+  }
+
+  const parsed = new Date(event.start);
+  if (Number.isNaN(parsed.getTime())) {
+    return event.start || "--:--";
+  }
+
+  return parsed.toLocaleTimeString("ja-JP", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+function nowTimeText(): string {
+  return new Date().toLocaleTimeString("ja-JP", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+}
+
 export default function DashboardPage() {
   const [state, setState] = useState<LoadState>({
     status: "loading",
     data: null,
   });
+  const [calendarState, setCalendarState] = useState<CalendarApiState>({
+    status: "idle",
+    data: null,
+    error: null,
+    durationMs: null,
+    fetchedAt: null,
+  });
+
+  const loadCalendar = useCallback(async () => {
+    setCalendarState((prev) => ({
+      ...prev,
+      status: "loading",
+      error: null,
+    }));
+
+    const startedAt = performance.now();
+    try {
+      const data = await fetchCalendarToday();
+      setCalendarState({
+        status: "ready",
+        data,
+        error: null,
+        durationMs: Math.round(performance.now() - startedAt),
+        fetchedAt: nowTimeText(),
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      setCalendarState((prev) => ({
+        ...prev,
+        status: "error",
+        error: errorMessage,
+        durationMs: Math.round(performance.now() - startedAt),
+        fetchedAt: nowTimeText(),
+      }));
+    }
+  }, []);
+
+  const handleGoogleSignIn = useCallback(async () => {
+    try {
+      await signInWithGoogle(window.location.href);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      setCalendarState((prev) => ({
+        ...prev,
+        status: "error",
+        error: `Googleログイン開始に失敗しました: ${errorMessage}`,
+      }));
+    }
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -64,6 +181,10 @@ export default function DashboardPage() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    void loadCalendar();
+  }, [loadCalendar]);
 
   const routine = useMemo(() => {
     if (!state.data) {
@@ -182,6 +303,134 @@ export default function DashboardPage() {
                   今日は標準ルーティンです
                 </Text>
               )}
+            </WidgetCard>
+
+            <WidgetCard title="Calendar API テスト" colSpan={{ base: 1, md: 6 }}>
+              <Stack gap={3}>
+                <Flex
+                  justify="space-between"
+                  align={{ base: "start", md: "center" }}
+                  direction={{ base: "column", md: "row" }}
+                  gap={2}
+                >
+                  <HStack gap={2} flexWrap="wrap">
+                    <Badge
+                      colorPalette={toCalendarStatusColor(calendarState.status)}
+                      variant="subtle"
+                    >
+                      {toCalendarStatusLabel(calendarState.status)}
+                    </Badge>
+                    <Text fontSize="xs" color="gray.500">
+                      {calendarState.fetchedAt
+                        ? `最終取得: ${calendarState.fetchedAt}`
+                        : "まだ取得していません"}
+                      {calendarState.durationMs != null
+                        ? ` ・ ${calendarState.durationMs}ms`
+                        : ""}
+                    </Text>
+                  </HStack>
+
+                  <HStack gap={2}>
+                    <Button
+                      size="sm"
+                      colorPalette="teal"
+                      onClick={() => void loadCalendar()}
+                      loading={calendarState.status === "loading"}
+                    >
+                      予定を再取得
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void handleGoogleSignIn()}
+                    >
+                      Googleログイン
+                    </Button>
+                  </HStack>
+                </Flex>
+
+                {calendarState.error ? (
+                  <Box bg="red.50" borderRadius="lg" p={3}>
+                    <Text fontSize="sm" color="red.700" fontWeight="semibold">
+                      {calendarState.error}
+                    </Text>
+                  </Box>
+                ) : null}
+
+                <HStack gap={4} flexWrap="wrap">
+                  <Text fontSize="sm" color="gray.700">
+                    対象日: {calendarState.data?.date ?? "--"}
+                  </Text>
+                  <Text fontSize="sm" color="gray.700">
+                    予定件数: {calendarState.data?.events.length ?? 0} 件
+                  </Text>
+                  <Text fontSize="sm" color="gray.700">
+                    先頭予定:{" "}
+                    {calendarState.data?.earliestEvent
+                      ? `${formatApiEventTime(calendarState.data.earliestEvent)} ${calendarState.data.earliestEvent.summary}`
+                      : "なし"}
+                  </Text>
+                </HStack>
+
+                {calendarState.data?.events.length ? (
+                  <Stack gap={2}>
+                    {calendarState.data.events.slice(0, 5).map((event) => (
+                      <Flex
+                        key={event.id}
+                        justify="space-between"
+                        align="center"
+                        borderWidth="1px"
+                        borderColor="gray.200"
+                        borderRadius="xl"
+                        px={3}
+                        py={2}
+                        bg="gray.50"
+                      >
+                        <Stack gap={0}>
+                          <Text fontSize="sm" fontWeight="semibold">
+                            {event.summary}
+                          </Text>
+                          <Text fontSize="xs" color="gray.500">
+                            {formatApiEventTime(event)}
+                            {event.location ? ` ・ ${event.location}` : ""}
+                          </Text>
+                        </Stack>
+                        <Badge
+                          variant="outline"
+                          colorPalette={event.isAllDay ? "orange" : "blue"}
+                        >
+                          {event.isAllDay ? "終日" : "時刻あり"}
+                        </Badge>
+                      </Flex>
+                    ))}
+                    {calendarState.data.events.length > 5 ? (
+                      <Text fontSize="xs" color="gray.500">
+                        他 {calendarState.data.events.length - 5} 件
+                      </Text>
+                    ) : null}
+                  </Stack>
+                ) : (
+                  <Text fontSize="sm" color="gray.500">
+                    {calendarState.status === "loading"
+                      ? "予定を取得しています..."
+                      : "今日の予定はありません。"}
+                  </Text>
+                )}
+
+                {calendarState.data ? (
+                  <Box bg="gray.900" borderRadius="xl" p={3} overflowX="auto">
+                    <Code
+                      fontSize="xs"
+                      whiteSpace="pre"
+                      display="block"
+                      color="green.100"
+                      bg="transparent"
+                    >
+                      {JSON.stringify(calendarState.data, null, 2)}
+                    </Code>
+                  </Box>
+                ) : null}
+              </Stack>
             </WidgetCard>
 
             <WidgetCard title="アプリ起動" colSpan={{ base: 1, md: 6 }}>

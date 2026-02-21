@@ -5,104 +5,41 @@ import type { CalendarEvent, TodayEventsResult } from "./google-calendar.types";
 // Token helpers
 // ---------------------------------------------------------------------------
 
-type RefreshedToken = { access_token: string; expires_in: number };
-
-async function refreshGoogleAccessToken(
-  clientId: string,
-  clientSecret: string,
-  refreshToken: string,
-): Promise<RefreshedToken | null> {
-  const res = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      client_id: clientId,
-      client_secret: clientSecret,
-      refresh_token: refreshToken,
-      grant_type: "refresh_token",
-    }),
-  });
-
-  if (!res.ok) {
-    console.error("Google token refresh failed:", res.status, await res.text());
-    return null;
-  }
-
-  const data = (await res.json()) as Record<string, unknown>;
-  if (
-    typeof data.access_token !== "string" ||
-    typeof data.expires_in !== "number"
-  ) {
-    return null;
-  }
-  return { access_token: data.access_token, expires_in: data.expires_in };
-}
+const GOOGLE_PROVIDER_ID = "google";
 
 /**
  * Retrieve a valid Google access token for the given user.
  *
- * Better Auth stores OAuth tokens (optionally encrypted) in the `account`
- * table.  We use Better Auth's **internal adapter** so that encryption /
- * decryption is handled transparently.
+ * Better Auth handles token decryption / refresh internally. We should always
+ * use the public `getAccessToken` API instead of reading `account` rows
+ * directly.
  */
 async function getGoogleAccessToken(
   env: Env,
   userId: string,
 ): Promise<string | null> {
   const auth = createAuth(env);
-  // biome-ignore lint/suspicious/noExplicitAny: accessing Better Auth internals
-  const ctx = await (auth as any).$context;
-  if (!ctx?.internalAdapter) {
-    console.error("Could not obtain Better Auth internal adapter");
+  try {
+    const tokenPayload = await auth.api.getAccessToken({
+      body: {
+        providerId: GOOGLE_PROVIDER_ID,
+        userId,
+      },
+    });
+
+    if (
+      !tokenPayload ||
+      typeof tokenPayload.accessToken !== "string" ||
+      tokenPayload.accessToken.trim().length === 0
+    ) {
+      return null;
+    }
+
+    return tokenPayload.accessToken;
+  } catch (error) {
+    console.error("Failed to get Google access token:", error);
     return null;
   }
-
-  const accounts: Array<Record<string, unknown>> =
-    await ctx.internalAdapter.findAccounts(userId);
-  const google = accounts.find((a) => a.providerId === "google");
-  if (!google) return null;
-
-  const accessToken =
-    typeof google.accessToken === "string" ? google.accessToken : null;
-  const refreshToken =
-    typeof google.refreshToken === "string" ? google.refreshToken : null;
-
-  // Check whether the current access token is still valid.
-  const expiresAt =
-    google.accessTokenExpiresAt instanceof Date
-      ? google.accessTokenExpiresAt
-      : typeof google.accessTokenExpiresAt === "string"
-        ? new Date(google.accessTokenExpiresAt)
-        : null;
-
-  const isExpired = expiresAt ? expiresAt.getTime() < Date.now() : true;
-
-  if (!isExpired && accessToken) {
-    return accessToken;
-  }
-
-  // Token is expired (or missing) — try to refresh.
-  if (!refreshToken) return null;
-
-  const refreshed = await refreshGoogleAccessToken(
-    env.GOOGLE_CLIENT_ID,
-    env.GOOGLE_CLIENT_SECRET,
-    refreshToken,
-  );
-  if (!refreshed) return null;
-
-  // Persist the refreshed token (Better Auth encrypts transparently).
-  try {
-    await ctx.internalAdapter.updateAccount(google.id as string, {
-      accessToken: refreshed.access_token,
-      accessTokenExpiresAt: new Date(Date.now() + refreshed.expires_in * 1000),
-    });
-  } catch (e) {
-    console.error("Failed to persist refreshed token:", e);
-    // We still got a valid token — continue.
-  }
-
-  return refreshed.access_token;
 }
 
 // ---------------------------------------------------------------------------
