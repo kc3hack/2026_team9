@@ -1,5 +1,6 @@
 import type { CalendarEvent } from "../google-calendar/google-calendar.types";
 import type { TransitRoute, TransitStep } from "../transit/transit.types";
+import type { WeatherInfo } from "../weather/weather.types";
 
 // ---------------------------------------------------------------------------
 // Request
@@ -70,4 +71,6 @@ export type MorningBriefingResult = {
   urgent: EventBriefing | null;
   /** Events that have NO location (listed for awareness). */
   eventsWithoutLocation: CalendarEvent[];
+  /** Weather / umbrella info at the departure location around leave-by time. */
+  weather: WeatherInfo | null;
 };

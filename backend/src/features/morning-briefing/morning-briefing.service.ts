@@ -2,6 +2,8 @@ import { getTodayEvents } from "../google-calendar/google-calendar.service";
 import type { CalendarEvent } from "../google-calendar/google-calendar.types";
 import { getTransitDirections } from "../transit/transit.service";
 import type { TransitRoute } from "../transit/transit.types";
+import { getWeather } from "../weather/weather.service";
+import type { WeatherInfo } from "../weather/weather.types";
 import type {
   EventBriefing,
   MorningBriefingRequest,
@@ -191,6 +193,17 @@ export async function getMorningBriefing(
   // The first (earliest) briefing is the most urgent
   const urgent = briefings.length > 0 ? briefings[0]! : null;
 
+  // 3️⃣ Weather — check at the departure location around the leave-by time
+  let weather: WeatherInfo | null = null;
+  try {
+    const weatherLocation = urgent?.destination ?? req.currentLocation;
+    const weatherTime = urgent?.leaveBy ?? nowHHmm;
+    weather = await getWeather(weatherLocation, weatherTime, env);
+  } catch {
+    // Never let weather break the briefing
+    weather = null;
+  }
+
   return {
     date: dateStr,
     now: nowHHmm,
@@ -198,5 +211,6 @@ export async function getMorningBriefing(
     briefings,
     urgent,
     eventsWithoutLocation: withoutLocation,
+    weather,
   };
 }
