@@ -4,7 +4,6 @@ import {
   Avatar,
   Box,
   Button,
-  Card,
   Container,
   Drawer,
   Heading,
@@ -54,6 +53,29 @@ import {
 } from "./helpers";
 import type { RunPhase, TransitionDirection, ViewMode } from "./types";
 
+type TaskDraft = {
+  task: string;
+  context: string;
+  deadline: string;
+  maxSteps: string;
+};
+
+const DEFAULT_MAX_STEPS = "6";
+const TASK_DRAFT_STORAGE_PREFIX = "task-decomp:draft:";
+
+function taskDraftStorageKey(userId: string): string {
+  return `${TASK_DRAFT_STORAGE_PREFIX}${userId}`;
+}
+
+function isEmptyTaskDraft(draft: TaskDraft): boolean {
+  return (
+    draft.task.trim().length === 0 &&
+    draft.context.trim().length === 0 &&
+    draft.deadline.trim().length === 0 &&
+    draft.maxSteps.trim() === DEFAULT_MAX_STEPS
+  );
+}
+
 export default function TaskDecompPage() {
   const [session, setSession] = useState<SessionResponse>(null);
   const [isSessionLoading, setIsSessionLoading] = useState(true);
@@ -61,7 +83,7 @@ export default function TaskDecompPage() {
   const [task, setTask] = useState("");
   const [context, setContext] = useState("");
   const [deadline, setDeadline] = useState("");
-  const [maxSteps, setMaxSteps] = useState("6");
+  const [maxSteps, setMaxSteps] = useState(DEFAULT_MAX_STEPS);
 
   const [phase, setPhase] = useState<RunPhase>("idle");
   const [workflowId, setWorkflowId] = useState<string | null>(null);
@@ -80,6 +102,7 @@ export default function TaskDecompPage() {
     useState<TransitionDirection>("forward");
 
   const viewModeRef = useRef<ViewMode>("auth");
+  const loadedDraftUserIdRef = useRef<string | null>(null);
 
   const signedInUser = useMemo(() => session?.user ?? null, [session]);
   const statusLabel = useMemo(
@@ -146,6 +169,67 @@ export default function TaskDecompPage() {
   useEffect(() => {
     void refreshHistory();
   }, [refreshHistory]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const userId = signedInUser?.id ?? null;
+    if (!userId) {
+      loadedDraftUserIdRef.current = null;
+      return;
+    }
+
+    if (loadedDraftUserIdRef.current === userId) {
+      return;
+    }
+
+    loadedDraftUserIdRef.current = userId;
+    const rawDraft = window.localStorage.getItem(taskDraftStorageKey(userId));
+    if (!rawDraft) {
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(rawDraft) as Partial<TaskDraft>;
+      setTask(typeof parsed.task === "string" ? parsed.task : "");
+      setContext(typeof parsed.context === "string" ? parsed.context : "");
+      setDeadline(typeof parsed.deadline === "string" ? parsed.deadline : "");
+      setMaxSteps(
+        typeof parsed.maxSteps === "string"
+          ? parsed.maxSteps
+          : DEFAULT_MAX_STEPS,
+      );
+    } catch {
+      window.localStorage.removeItem(taskDraftStorageKey(userId));
+    }
+  }, [signedInUser?.id]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const userId = signedInUser?.id;
+    if (!userId) {
+      return;
+    }
+
+    const draft: TaskDraft = {
+      task,
+      context,
+      deadline,
+      maxSteps,
+    };
+    const storageKey = taskDraftStorageKey(userId);
+    if (isEmptyTaskDraft(draft)) {
+      window.localStorage.removeItem(storageKey);
+      return;
+    }
+
+    window.localStorage.setItem(storageKey, JSON.stringify(draft));
+  }, [signedInUser?.id, task, context, deadline, maxSteps]);
 
   useEffect(() => {
     if (phase !== "waiting") {
@@ -353,16 +437,21 @@ export default function TaskDecompPage() {
   };
 
   const handleSignOut = async () => {
+    const currentUserId = signedInUser?.id ?? null;
     setIsSignOutRunning(true);
     try {
       await signOut();
+      if (typeof window !== "undefined" && currentUserId) {
+        window.localStorage.removeItem(taskDraftStorageKey(currentUserId));
+      }
       setSession(null);
       setIsHistoryDrawerOpen(false);
       setHistory([]);
+      loadedDraftUserIdRef.current = null;
       setTask("");
       setContext("");
       setDeadline("");
-      setMaxSteps("6");
+      setMaxSteps(DEFAULT_MAX_STEPS);
       handleStartNewTask();
     } catch (error) {
       setErrorMessage(toErrorMessage(error, "signOut"));
@@ -637,15 +726,9 @@ export default function TaskDecompPage() {
             </Drawer.Root>
           ) : null}
 
-          <Card.Root
-            bg="var(--app-surface)"
-            borderColor="var(--app-border)"
-            borderWidth="1px"
-            borderRadius="2xl"
-            className={`flow-card flow-card--${transitionDirection}`}
-          >
-            <Card.Body p={{ base: 4, md: 6 }}>{screenBody}</Card.Body>
-          </Card.Root>
+          <Box className={`flow-card--${transitionDirection}`}>
+            {screenBody}
+          </Box>
         </Stack>
       </Container>
     </Box>
