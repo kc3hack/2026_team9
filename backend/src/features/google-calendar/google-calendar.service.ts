@@ -145,7 +145,11 @@ export async function getTodayEvents(
     { headers: { Authorization: `Bearer ${accessToken}` } },
   );
 
-  console.log("[Calendar] Request:", `timeMin=${timeMin}`, `timeMax=${timeMax}`);
+  console.log(
+    "[Calendar] Request:",
+    `timeMin=${timeMin}`,
+    `timeMax=${timeMax}`,
+  );
   if (!res.ok) {
     const errText = await res.text();
     console.error("Google Calendar API error:", res.status, errText);
