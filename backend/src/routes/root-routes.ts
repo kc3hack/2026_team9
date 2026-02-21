@@ -8,6 +8,7 @@ export function registerRootRoutes(app: App): void {
         "ALL /api/auth/*",
         "POST /tasks/decompose",
         "POST /workflows/decompose",
+        "GET /workflows/history",
         "GET /workflows/:id",
       ],
     });

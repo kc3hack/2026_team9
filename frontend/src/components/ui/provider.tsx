@@ -10,7 +10,12 @@ type Props = {
 export function Provider({ children }: Props) {
   return (
     <ChakraProvider value={defaultSystem}>
-      <ThemeProvider attribute="class" disableTransitionOnChange>
+      <ThemeProvider
+        attribute="class"
+        defaultTheme="system"
+        enableSystem
+        disableTransitionOnChange
+      >
         {children}
       </ThemeProvider>
     </ChakraProvider>
