@@ -58,6 +58,7 @@ type ResultStepProps = {
   phase: RunPhase;
   statusLabel: string;
   record: WorkflowRecord | null;
+  userTimezone: string;
   displayErrorMessage: string | null;
   onStartNewTask: () => void;
 };
@@ -335,11 +336,13 @@ export function ResultStep({
   phase,
   statusLabel,
   record,
+  userTimezone,
   displayErrorMessage,
   onStartNewTask,
 }: ResultStepProps) {
   const breakdown = record?.llmOutput;
   const calendarResult = record?.calendarOutput;
+  const displayTimezone = record?.timezone ?? userTimezone;
 
   return (
     <Stack gap={5}>
@@ -381,8 +384,7 @@ export function ResultStep({
                       </Text>
                       <HStack gap={2} flexWrap="wrap">
                         <Badge colorPalette="blue" variant="subtle">
-                          期限:{" "}
-                          {formatDateTime(subtask.dueAt, record?.timezone)}
+                          期限: {formatDateTime(subtask.dueAt, displayTimezone)}
                         </Badge>
                         <Badge colorPalette="teal" variant="subtle">
                           {subtask.durationMinutes} 分
@@ -418,12 +420,12 @@ export function ResultStep({
                           <Text fontSize="sm" color="fg.muted">
                             {formatDateTime(
                               eventItem.startAt,
-                              calendarResult.timezone,
+                              calendarResult.timezone ?? displayTimezone,
                             )}{" "}
                             -{" "}
                             {formatDateTime(
                               eventItem.endAt,
-                              calendarResult.timezone,
+                              calendarResult.timezone ?? displayTimezone,
                             )}
                           </Text>
                         </Stack>

@@ -1,4 +1,5 @@
 import type { TaskDecomposeRequest } from "./task-decompose.types";
+import { normalizeTaskTimezone } from "./task-timezone";
 
 const MAX_STEPS_LIMIT = 12;
 
@@ -20,17 +21,12 @@ function parseDeadline(value: unknown): string | undefined {
   return parsed.toISOString();
 }
 
-function parseTimezone(value: unknown): string | undefined {
+function parseTimezone(value: unknown): string {
   if (typeof value !== "string") {
-    return undefined;
+    return normalizeTaskTimezone(undefined);
   }
 
-  const trimmed = value.trim();
-  if (trimmed.length === 0) {
-    return undefined;
-  }
-
-  return trimmed;
+  return normalizeTaskTimezone(value);
 }
 
 function parseMaxSteps(value: unknown): number | undefined {

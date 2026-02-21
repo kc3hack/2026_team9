@@ -89,14 +89,48 @@ export function formatDateTime(
     return value;
   }
 
-  return parsed.toLocaleString("ja-JP", {
-    timeZone: timezone ?? DEFAULT_USER_TIMEZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const safeTimezone = normalizeTimezone(timezone);
+  try {
+    return parsed.toLocaleString("ja-JP", {
+      timeZone: safeTimezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return parsed.toLocaleString("ja-JP", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+}
+
+export function normalizeTimezone(timezone: string | null | undefined): string {
+  if (!timezone || timezone.trim().length === 0) {
+    return DEFAULT_USER_TIMEZONE;
+  }
+
+  const candidate = timezone.trim();
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      timeZone: candidate,
+    }).resolvedOptions().timeZone;
+  } catch {
+    return DEFAULT_USER_TIMEZONE;
+  }
+}
+
+export function detectBrowserTimezone(): string {
+  if (typeof window === "undefined") {
+    return DEFAULT_USER_TIMEZONE;
+  }
+
+  return normalizeTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone);
 }
 
 export function toStatusLabel(
