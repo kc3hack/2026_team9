@@ -135,18 +135,6 @@ export default function HomePage() {
               </Card.Root>
             ))}
           </Grid>
-
-          <HStack gap={4} flexWrap="wrap">
-            <Button asChild variant="outline" colorPalette="teal">
-              <NextLink href="/task-decomp">設計モードへ</NextLink>
-            </Button>
-            <Button asChild variant="outline" colorPalette="blue">
-              <NextLink href="/dashboard">運用モードへ</NextLink>
-            </Button>
-            <Text fontSize="sm" color="fg.muted">
-              詳細な背景はリポジトリの README に整理しています。
-            </Text>
-          </HStack>
         </Stack>
       </Container>
     </Box>
