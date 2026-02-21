@@ -417,8 +417,6 @@ export default function TaskDecompPage() {
           isReauthRunning={isReauthRunning}
           phase={phase}
           isSessionLoading={isSessionLoading}
-          history={history}
-          onSelectHistory={handleSelectHistory}
         />
       );
     }
@@ -467,30 +465,19 @@ export default function TaskDecompPage() {
 
       <Container maxW="5xl" position="relative" zIndex={1}>
         <Stack gap={6}>
-          <HStack gap={3} flexWrap="wrap">
-            <Badge colorPalette="teal" size="md">
-              Task Workflow
-            </Badge>
-            <Badge colorPalette="blue" size="md">
-              Google Calendar
-            </Badge>
-            <Badge colorPalette="green" size="md">
-              Workers AI
-            </Badge>
-          </HStack>
-
           <Stack gap={2}>
-            <Heading size="2xl" lineHeight="1.15">
+            <Heading size={{ base: "xl", md: "2xl" }} lineHeight="1.15">
               タスク細分化ワークフロー
             </Heading>
-            <Text fontSize="lg" color="fg.muted">
-              必要な情報だけに絞った4画面フローで、入力から結果確認まで進めます。
+            <Text fontSize={{ base: "md", md: "lg" }} color="fg.muted">
+              目標を今日の実行に落とし込むためのフローです。
             </Text>
           </Stack>
 
           {viewMode !== "auth" ? (
             <HStack justify="space-between" flexWrap="wrap" gap={3}>
               <Badge colorPalette="teal" variant="subtle">
+                {currentStepIndex + 1} / {STEP_ITEMS.length} :{" "}
                 {STEP_ITEMS[currentStepIndex].label}
               </Badge>
 
@@ -506,7 +493,11 @@ export default function TaskDecompPage() {
                     {toInitials(signedInUser?.name)}
                   </Avatar.Fallback>
                 </Avatar.Root>
-                <Text fontSize="sm" color="fg.muted">
+                <Text
+                  fontSize="sm"
+                  color="fg.muted"
+                  display={{ base: "none", md: "block" }}
+                >
                   {signedInUser?.email ?? "未ログイン"}
                 </Text>
                 <Button
@@ -521,18 +512,6 @@ export default function TaskDecompPage() {
             </HStack>
           ) : null}
 
-          <HStack gap={2} flexWrap="wrap">
-            {STEP_ITEMS.map((item, index) => (
-              <Badge
-                key={item.label}
-                variant={index <= currentStepIndex ? "solid" : "outline"}
-                colorPalette={index <= currentStepIndex ? "teal" : "gray"}
-              >
-                {index + 1}. {item.label}
-              </Badge>
-            ))}
-          </HStack>
-
           <Card.Root
             bg="var(--app-surface)"
             borderColor="var(--app-border)"
@@ -540,7 +519,7 @@ export default function TaskDecompPage() {
             borderRadius="2xl"
             className={`flow-card flow-card--${transitionDirection}`}
           >
-            <Card.Body>{screenBody}</Card.Body>
+            <Card.Body p={{ base: 4, md: 6 }}>{screenBody}</Card.Body>
           </Card.Root>
         </Stack>
       </Container>
