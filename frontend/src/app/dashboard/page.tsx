@@ -16,9 +16,9 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { signInWithGoogle } from "@/lib/auth-api";
 import {
-  fetchCalendarToday,
   type CalendarTodayEvent,
   type CalendarTodayResponse,
+  fetchCalendarToday,
 } from "@/lib/backend-api";
 import type { MorningDashboard } from "@/lib/morning-dashboard-api";
 import { getMorningDashboard } from "@/lib/morning-dashboard-api";
@@ -136,7 +136,8 @@ export default function DashboardPage() {
         fetchedAt: nowTimeText(),
       });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       setCalendarState((prev) => ({
         ...prev,
         status: "error",
@@ -151,7 +152,8 @@ export default function DashboardPage() {
     try {
       await signInWithGoogle(window.location.href);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       setCalendarState((prev) => ({
         ...prev,
         status: "error",
@@ -305,7 +307,10 @@ export default function DashboardPage() {
               )}
             </WidgetCard>
 
-            <WidgetCard title="Calendar API テスト" colSpan={{ base: 1, md: 6 }}>
+            <WidgetCard
+              title="Calendar API テスト"
+              colSpan={{ base: 1, md: 6 }}
+            >
               <Stack gap={3}>
                 <Flex
                   justify="space-between"

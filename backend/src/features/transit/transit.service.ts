@@ -107,7 +107,6 @@ export async function getTransitDirections(
   // walks + waits add overhead. 1.3× is a conservative estimate.
   const TRANSIT_MULTIPLIER = 1.3;
 
-  // biome-ignore lint/suspicious/noExplicitAny: Routes API route object
   const routes: TransitRoute[] = data.routes
     // biome-ignore lint/suspicious/noExplicitAny: Routes API route object
     .map((route: any): TransitRoute | null => {
