@@ -19,19 +19,6 @@ body {
   --flow-shadow: 0 24px 58px -34px rgba(28, 47, 86, 0.48);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-    --app-bg: linear-gradient(180deg, #0d1422 0%, #111a2b 45%, #101c19 100%);
-    --app-surface: #151f31;
-    --app-surface-soft: #18253b;
-    --app-border: #2a3953;
-    --app-text: #e6eefb;
-    --app-muted: #a5b5d1;
-    --flow-shadow: 0 26px 62px -34px rgba(0, 0, 0, 0.68);
-  }
-}
-
 html.light {
   color-scheme: light;
   --app-bg: linear-gradient(180deg, #f5f8ff 0%, #eef6ff 45%, #f7fbf3 100%);

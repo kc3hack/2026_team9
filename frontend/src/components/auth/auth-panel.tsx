@@ -22,6 +22,9 @@ import {
 } from "@/lib/auth-api";
 
 type AuthAction = "session" | "signIn" | "signOut";
+type AuthPanelProps = {
+  onSessionChanged?: (session: SessionResponse) => void;
+};
 
 function fallbackMessage(action: AuthAction): string {
   if (action === "session") {
@@ -50,7 +53,7 @@ function toErrorMessage(error: unknown, action: AuthAction): string {
   return fallbackMessage(action);
 }
 
-export function AuthPanel() {
+export function AuthPanel({ onSessionChanged }: AuthPanelProps) {
   const [session, setSession] = useState<SessionResponse>(null);
   const [isPending, setIsPending] = useState(true);
   const [sessionError, setSessionError] = useState<string | null>(null);
@@ -71,6 +74,7 @@ export function AuthPanel() {
     try {
       const nextSession = await getSession();
       setSession(nextSession);
+      onSessionChanged?.(nextSession);
       setSessionError(null);
       if (nextSession) {
         setActionError(null);
@@ -79,10 +83,11 @@ export function AuthPanel() {
     } catch (error) {
       setSessionError(toErrorMessage(error, "session"));
       setSession(null);
+      onSessionChanged?.(null);
     } finally {
       setIsPending(false);
     }
-  }, []);
+  }, [onSessionChanged]);
 
   useEffect(() => {
     const callbackError = consumeAuthCallbackErrorFromUrl(window.location.href);

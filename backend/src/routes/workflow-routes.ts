@@ -77,7 +77,6 @@ export function registerWorkflowRoutes(app: App): void {
     return c.json(
       {
         id: instance.id,
-        status: workflowStatus,
         workflowStatus,
         record,
       },
@@ -120,7 +119,6 @@ export function registerWorkflowRoutes(app: App): void {
 
     return c.json({
       id,
-      status: workflowStatus,
       workflowStatus,
       record,
     });

@@ -40,7 +40,7 @@ function parseMaxSteps(value: unknown): number | undefined {
 
   const rounded = Math.trunc(value);
   if (rounded < 1) {
-    return undefined;
+    return 1;
   }
 
   return Math.min(rounded, MAX_STEPS_LIMIT);

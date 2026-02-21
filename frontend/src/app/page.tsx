@@ -136,7 +136,7 @@ function formatDateTime(
   }
 
   return parsed.toLocaleString("ja-JP", {
-    timeZone: timezone ?? undefined,
+    timeZone: timezone ?? DEFAULT_USER_TIMEZONE,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -436,15 +436,19 @@ export default function Home() {
     };
 
     void poll();
+    const pollIntervalMs =
+      record?.status === "running" || record?.status === "calendar_syncing"
+        ? 5000
+        : 3000;
     const timer = window.setInterval(() => {
       void poll();
-    }, 2500);
+    }, pollIntervalMs);
 
     return () => {
       active = false;
       window.clearInterval(timer);
     };
-  }, [workflowId, phase, refreshHistory]);
+  }, [workflowId, phase, record?.status, refreshHistory]);
 
   useEffect(() => {
     let nextView: ViewMode;
@@ -591,6 +595,14 @@ export default function Home() {
     setIsReauthRunning(false);
   };
 
+  const handleAuthPanelSessionChanged = useCallback(
+    (nextSession: SessionResponse) => {
+      setSession(nextSession);
+      setIsSessionLoading(false);
+    },
+    [],
+  );
+
   const currentStepIndex = viewIndex(viewMode);
   const waitingDots = ".".repeat(dotTick + 1);
   const breakdown = record?.llmOutput;
@@ -604,7 +616,7 @@ export default function Home() {
             まずGoogleでログインし、カレンダー連携権限を許可してください。
             認証後はタスク入力画面に進みます。
           </Text>
-          <AuthPanel />
+          <AuthPanel onSessionChanged={handleAuthPanelSessionChanged} />
         </Stack>
       );
     }

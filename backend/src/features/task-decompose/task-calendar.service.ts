@@ -124,13 +124,25 @@ async function readErrorMessage(response: Response): Promise<string> {
 }
 
 function isCalendarPermissionError(status: number, message: string): boolean {
-  if (status === 401 || status === 403) {
+  if (status === 401) {
     return true;
   }
 
   const lower = message.toLowerCase();
+  if (status !== 403) {
+    return false;
+  }
+
   return (
     lower.includes("insufficient") ||
+    lower.includes("insufficientpermissions") ||
+    lower.includes("insufficient permissions") ||
+    lower.includes("insufficient authentication scopes") ||
+    lower.includes("insufficientpermission") ||
+    lower.includes("insufficient authentication scope") ||
+    lower.includes("insufficient scope") ||
+    lower.includes("insufficient_scope") ||
+    lower.includes("scope") ||
     lower.includes("permission") ||
     lower.includes("forbidden")
   );
