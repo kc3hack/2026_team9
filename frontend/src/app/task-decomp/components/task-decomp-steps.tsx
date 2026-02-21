@@ -2,8 +2,8 @@
 
 import {
   Badge,
+  Box,
   Button,
-  Card,
   Field,
   Heading,
   HStack,
@@ -46,8 +46,6 @@ type ComposeStepProps = {
   isReauthRunning: boolean;
   phase: RunPhase;
   isSessionLoading: boolean;
-  history: WorkflowRecord[];
-  onSelectHistory: (item: WorkflowRecord) => void;
 };
 
 type RunningStepProps = {
@@ -101,8 +99,6 @@ export function ComposeStep({
   isReauthRunning,
   phase,
   isSessionLoading,
-  history,
-  onSelectHistory,
 }: ComposeStepProps) {
   return (
     <Stack gap={5}>
@@ -188,40 +184,6 @@ export function ComposeStep({
           </HStack>
         </Stack>
       </form>
-
-      {history.length > 0 ? (
-        <Card.Root variant="outline" bg="var(--app-surface-soft)">
-          <Card.Header pb={2}>
-            <Card.Title fontSize="md">最近の履歴</Card.Title>
-          </Card.Header>
-          <Card.Body>
-            <List.Root gap={2}>
-              {history.slice(0, 3).map((item) => (
-                <List.Item key={item.workflowId}>
-                  <HStack justify="space-between" align="start" gap={3}>
-                    <Stack gap={0.5}>
-                      <Text fontSize="sm" lineClamp={2}>
-                        {toHistoryTitle(item)}
-                      </Text>
-                      <Text fontSize="xs" color="fg.muted">
-                        {formatDateTime(item.createdAt, item.timezone)} /{" "}
-                        {toStatusLabelFromRecord(item.status)}
-                      </Text>
-                    </Stack>
-                    <Button
-                      size="xs"
-                      variant="outline"
-                      onClick={() => onSelectHistory(item)}
-                    >
-                      表示
-                    </Button>
-                  </HStack>
-                </List.Item>
-              ))}
-            </List.Root>
-          </Card.Body>
-        </Card.Root>
-      ) : null}
     </Stack>
   );
 }
@@ -322,28 +284,34 @@ export function ResultStep({
 
         <Tabs.Content value="result" pt={4}>
           {breakdown ? (
-            <Stack gap={4}>
-              <Card.Root variant="outline" bg="var(--app-surface-soft)">
-                <Card.Body>
-                  <Stack gap={2}>
-                    <Text fontWeight="semibold">目標</Text>
-                    <Text color="fg.muted">{breakdown.goal}</Text>
-                    <Text fontWeight="semibold" pt={2}>
-                      要約
-                    </Text>
-                    <Text color="fg.muted">{breakdown.summary}</Text>
-                  </Stack>
-                </Card.Body>
-              </Card.Root>
+            <Stack gap={5}>
+              <Stack gap={2}>
+                <Text fontSize="xs" color="fg.muted" fontWeight="semibold">
+                  目標
+                </Text>
+                <Text>{breakdown.goal}</Text>
+                <Text
+                  fontSize="xs"
+                  color="fg.muted"
+                  fontWeight="semibold"
+                  pt={2}
+                >
+                  要約
+                </Text>
+                <Text color="fg.muted">{breakdown.summary}</Text>
+              </Stack>
 
-              <Card.Root variant="outline" bg="var(--app-surface-soft)">
-                <Card.Header pb={2}>
-                  <Card.Title fontSize="md">サブタスク</Card.Title>
-                </Card.Header>
-                <Card.Body>
-                  <List.Root gap={3}>
-                    {breakdown.subtasks.map((subtask, index) => (
-                      <List.Item key={`${index}-${subtask.title}`}>
+              <Stack gap={3}>
+                <HStack justify="space-between" flexWrap="wrap">
+                  <Text fontWeight="semibold">サブタスク</Text>
+                  <Badge colorPalette="teal" variant="subtle">
+                    {breakdown.subtasks.length} 件
+                  </Badge>
+                </HStack>
+                <List.Root gap={3}>
+                  {breakdown.subtasks.map((subtask, index) => (
+                    <List.Item key={`${index}-${subtask.title}`}>
+                      <Box borderWidth="1px" borderRadius="xl" p={3}>
                         <Stack gap={1}>
                           <Text fontWeight="medium">{subtask.title}</Text>
                           <Text fontSize="sm" color="fg.muted">
@@ -359,20 +327,26 @@ export function ResultStep({
                             </Badge>
                           </HStack>
                         </Stack>
-                      </List.Item>
-                    ))}
-                  </List.Root>
-                </Card.Body>
-              </Card.Root>
+                      </Box>
+                    </List.Item>
+                  ))}
+                </List.Root>
+              </Stack>
 
               {calendarResult ? (
-                <Card.Root variant="outline" bg="var(--app-surface-soft)">
-                  <Card.Header pb={2}>
-                    <Card.Title fontSize="md">
-                      Google Calendar 反映結果
-                    </Card.Title>
-                  </Card.Header>
-                  <Card.Body>
+                <Stack gap={3}>
+                  <HStack justify="space-between" flexWrap="wrap">
+                    <Text fontWeight="semibold">Google Calendar 反映結果</Text>
+                    <Badge colorPalette="blue" variant="subtle">
+                      {calendarResult.createdEvents.length} 件
+                    </Badge>
+                  </HStack>
+
+                  {calendarResult.createdEvents.length === 0 ? (
+                    <Text fontSize="sm" color="fg.muted">
+                      作成された予定はありません。
+                    </Text>
+                  ) : (
                     <List.Root gap={2}>
                       {calendarResult.createdEvents.map((eventItem) => (
                         <List.Item key={eventItem.id}>
@@ -417,76 +391,64 @@ export function ResultStep({
                         </List.Item>
                       ))}
                     </List.Root>
-                  </Card.Body>
-                </Card.Root>
+                  )}
+                </Stack>
               ) : null}
 
               {breakdown.assumptions.length > 0 ? (
-                <Card.Root variant="outline" bg="var(--app-surface-soft)">
-                  <Card.Header pb={2}>
-                    <Card.Title fontSize="md">前提 / メモ</Card.Title>
-                  </Card.Header>
-                  <Card.Body>
-                    <List.Root gap={1}>
-                      {breakdown.assumptions.map((item) => (
-                        <List.Item key={item}>{item}</List.Item>
-                      ))}
-                    </List.Root>
-                  </Card.Body>
-                </Card.Root>
+                <Stack gap={2}>
+                  <Text fontWeight="semibold">前提 / メモ</Text>
+                  <List.Root gap={1}>
+                    {breakdown.assumptions.map((item) => (
+                      <List.Item key={item}>{item}</List.Item>
+                    ))}
+                  </List.Root>
+                </Stack>
               ) : null}
             </Stack>
           ) : (
-            <Card.Root variant="outline" bg="var(--app-surface-soft)">
-              <Card.Body>
-                <Text fontSize="sm" color="fg.muted">
-                  結果がありません。失敗した場合は履歴から詳細を確認してください。
+            <Stack gap={2}>
+              <Text fontSize="sm" color="fg.muted">
+                結果がありません。失敗した場合は履歴から詳細を確認してください。
+              </Text>
+              {displayErrorMessage ? (
+                <Text fontSize="sm" color="red.500">
+                  {displayErrorMessage}
                 </Text>
-                {displayErrorMessage ? (
-                  <Text fontSize="sm" color="red.500" mt={2}>
-                    {displayErrorMessage}
-                  </Text>
-                ) : null}
-              </Card.Body>
-            </Card.Root>
+              ) : null}
+            </Stack>
           )}
         </Tabs.Content>
 
         <Tabs.Content value="history" pt={4}>
-          <Card.Root variant="outline" bg="var(--app-surface-soft)">
-            <Card.Body>
-              {history.length === 0 ? (
-                <Text fontSize="sm" color="fg.muted">
-                  まだ履歴はありません。
-                </Text>
-              ) : (
-                <List.Root gap={3}>
-                  {history.map((item) => (
-                    <List.Item key={item.workflowId}>
-                      <HStack justify="space-between" align="start" gap={3}>
-                        <Stack gap={0.5}>
-                          <Text fontWeight="medium">
-                            {toHistoryTitle(item)}
-                          </Text>
-                          <Text fontSize="xs" color="fg.muted">
-                            {formatDateTime(item.createdAt, item.timezone)} /{" "}
-                            {toStatusLabelFromRecord(item.status)}
-                          </Text>
-                        </Stack>
-                        <Button
-                          size="xs"
-                          variant="outline"
-                          onClick={() => onSelectHistory(item)}
-                        >
-                          表示
-                        </Button>
-                      </HStack>
-                    </List.Item>
-                  ))}
-                </List.Root>
-              )}
-            </Card.Body>
-          </Card.Root>
+          {history.length === 0 ? (
+            <Text fontSize="sm" color="fg.muted">
+              まだ履歴はありません。
+            </Text>
+          ) : (
+            <List.Root gap={3}>
+              {history.map((item) => (
+                <List.Item key={item.workflowId}>
+                  <HStack justify="space-between" align="start" gap={3}>
+                    <Stack gap={0.5}>
+                      <Text fontWeight="medium">{toHistoryTitle(item)}</Text>
+                      <Text fontSize="xs" color="fg.muted">
+                        {formatDateTime(item.createdAt, item.timezone)} /{" "}
+                        {toStatusLabelFromRecord(item.status)}
+                      </Text>
+                    </Stack>
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      onClick={() => onSelectHistory(item)}
+                    >
+                      表示
+                    </Button>
+                  </HStack>
+                </List.Item>
+              ))}
+            </List.Root>
+          )}
         </Tabs.Content>
       </Tabs.Root>
     </Stack>
