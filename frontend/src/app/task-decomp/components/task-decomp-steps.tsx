@@ -11,7 +11,6 @@ import {
   List,
   ProgressCircle,
   Stack,
-  Tabs,
   Text,
   Textarea,
 } from "@chakra-ui/react";
@@ -19,12 +18,8 @@ import type { FormEvent } from "react";
 import { AuthPanel } from "@/components/auth/auth-panel";
 import type { SessionResponse } from "@/lib/auth-api";
 import type { WorkflowRecord } from "@/lib/task-workflow-api";
-import {
-  formatDateTime,
-  toHistoryTitle,
-  toStatusLabelFromRecord,
-} from "../helpers";
-import type { ResultTab, RunPhase } from "../types";
+import { formatDateTime } from "../helpers";
+import type { RunPhase } from "../types";
 
 type AuthStepProps = {
   onSessionChanged: (nextSession: SessionResponse) => void;
@@ -62,14 +57,71 @@ type RunningStepProps = {
 type ResultStepProps = {
   phase: RunPhase;
   statusLabel: string;
-  resultTab: ResultTab;
-  onResultTabChange: (tab: ResultTab) => void;
   record: WorkflowRecord | null;
-  history: WorkflowRecord[];
   displayErrorMessage: string | null;
   onStartNewTask: () => void;
-  onSelectHistory: (item: WorkflowRecord) => void;
 };
+
+type StatusCardProps = {
+  phase: RunPhase;
+  statusLabel: string;
+};
+
+function toStatusCardTone(phase: RunPhase): {
+  caption: string;
+  dotColor: string;
+} {
+  if (phase === "failed") {
+    return {
+      caption: "実行エラー",
+      dotColor: "red.400",
+    };
+  }
+
+  if (phase === "completed") {
+    return {
+      caption: "実行完了",
+      dotColor: "green.400",
+    };
+  }
+
+  if (phase === "starting" || phase === "waiting") {
+    return {
+      caption: "実行中",
+      dotColor: "teal.400",
+    };
+  }
+
+  return {
+    caption: "待機中",
+    dotColor: "gray.400",
+  };
+}
+
+function StatusCard({ phase, statusLabel }: StatusCardProps) {
+  const tone = toStatusCardTone(phase);
+
+  return (
+    <Box
+      borderWidth="1px"
+      borderColor="var(--app-border)"
+      bg="var(--app-surface-soft)"
+      borderRadius="lg"
+      px={{ base: 3, md: 3.5 }}
+      py={{ base: 2, md: 2.5 }}
+      w="fit-content"
+      maxW="100%"
+      title={statusLabel}
+    >
+      <HStack gap={1.5}>
+        <Box w={2} h={2} borderRadius="full" bg={tone.dotColor} />
+        <Text fontSize="xs" color="fg.muted">
+          {tone.caption}
+        </Text>
+      </HStack>
+    </Box>
+  );
+}
 
 export function AuthStep({ onSessionChanged }: AuthStepProps) {
   return (
@@ -219,9 +271,7 @@ export function RunningStep({
         </Text>
       </Stack>
 
-      <Badge colorPalette={phase === "failed" ? "red" : "teal"}>
-        {statusLabel}
-      </Badge>
+      <StatusCard phase={phase} statusLabel={statusLabel} />
 
       {displayErrorMessage ? (
         <Text fontSize="sm" color="red.500">
@@ -247,210 +297,150 @@ export function RunningStep({
 export function ResultStep({
   phase,
   statusLabel,
-  resultTab,
-  onResultTabChange,
   record,
-  history,
   displayErrorMessage,
   onStartNewTask,
-  onSelectHistory,
 }: ResultStepProps) {
   const breakdown = record?.llmOutput;
   const calendarResult = record?.calendarOutput;
 
   return (
     <Stack gap={5}>
-      <HStack justify="space-between" flexWrap="wrap" gap={3}>
-        <Badge colorPalette={phase === "failed" ? "red" : "green"}>
-          {statusLabel}
-        </Badge>
+      <HStack justify="space-between" align="start" flexWrap="wrap" gap={3}>
+        <StatusCard phase={phase} statusLabel={statusLabel} />
         <Button variant="outline" onClick={onStartNewTask}>
           新しいタスクを入力
         </Button>
       </HStack>
 
-      <Tabs.Root
-        value={resultTab}
-        onValueChange={(details) => {
-          if (details.value === "result" || details.value === "history") {
-            onResultTabChange(details.value);
-          }
-        }}
-      >
-        <Tabs.List>
-          <Tabs.Trigger value="result">分解結果</Tabs.Trigger>
-          <Tabs.Trigger value="history">実行履歴</Tabs.Trigger>
-        </Tabs.List>
-
-        <Tabs.Content value="result" pt={4}>
-          {breakdown ? (
-            <Stack gap={5}>
-              <Stack gap={2}>
-                <Text fontSize="xs" color="fg.muted" fontWeight="semibold">
-                  目標
-                </Text>
-                <Text>{breakdown.goal}</Text>
-                <Text
-                  fontSize="xs"
-                  color="fg.muted"
-                  fontWeight="semibold"
-                  pt={2}
-                >
-                  要約
-                </Text>
-                <Text color="fg.muted">{breakdown.summary}</Text>
-              </Stack>
-
-              <Stack gap={3}>
-                <HStack justify="space-between" flexWrap="wrap">
-                  <Text fontWeight="semibold">サブタスク</Text>
-                  <Badge colorPalette="teal" variant="subtle">
-                    {breakdown.subtasks.length} 件
-                  </Badge>
-                </HStack>
-                <List.Root gap={3}>
-                  {breakdown.subtasks.map((subtask, index) => (
-                    <List.Item key={`${index}-${subtask.title}`}>
-                      <Box borderWidth="1px" borderRadius="xl" p={3}>
-                        <Stack gap={1}>
-                          <Text fontWeight="medium">{subtask.title}</Text>
-                          <Text fontSize="sm" color="fg.muted">
-                            {subtask.description}
-                          </Text>
-                          <HStack gap={2} flexWrap="wrap">
-                            <Badge colorPalette="blue" variant="subtle">
-                              期限:{" "}
-                              {formatDateTime(subtask.dueAt, record?.timezone)}
-                            </Badge>
-                            <Badge colorPalette="teal" variant="subtle">
-                              {subtask.durationMinutes} 分
-                            </Badge>
-                          </HStack>
-                        </Stack>
-                      </Box>
-                    </List.Item>
-                  ))}
-                </List.Root>
-              </Stack>
-
-              {calendarResult ? (
-                <Stack gap={3}>
-                  <HStack justify="space-between" flexWrap="wrap">
-                    <Text fontWeight="semibold">Google Calendar 反映結果</Text>
-                    <Badge colorPalette="blue" variant="subtle">
-                      {calendarResult.createdEvents.length} 件
-                    </Badge>
-                  </HStack>
-
-                  {calendarResult.createdEvents.length === 0 ? (
-                    <Text fontSize="sm" color="fg.muted">
-                      作成された予定はありません。
-                    </Text>
-                  ) : (
-                    <List.Root gap={2}>
-                      {calendarResult.createdEvents.map((eventItem) => (
-                        <List.Item key={eventItem.id}>
-                          <HStack justify="space-between" align="start" gap={3}>
-                            <Stack gap={1}>
-                              <Text fontWeight="medium">
-                                {eventItem.summary}
-                              </Text>
-                              <Text fontSize="sm" color="fg.muted">
-                                {formatDateTime(
-                                  eventItem.startAt,
-                                  calendarResult.timezone,
-                                )}{" "}
-                                -{" "}
-                                {formatDateTime(
-                                  eventItem.endAt,
-                                  calendarResult.timezone,
-                                )}
-                              </Text>
-                            </Stack>
-                            {eventItem.htmlLink ? (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  if (!eventItem.htmlLink) {
-                                    return;
-                                  }
-                                  window.open(
-                                    eventItem.htmlLink,
-                                    "_blank",
-                                    "noopener,noreferrer",
-                                  );
-                                }}
-                              >
-                                開く
-                              </Button>
-                            ) : (
-                              <Badge colorPalette="gray">リンクなし</Badge>
-                            )}
-                          </HStack>
-                        </List.Item>
-                      ))}
-                    </List.Root>
-                  )}
-                </Stack>
-              ) : null}
-
-              {breakdown.assumptions.length > 0 ? (
-                <Stack gap={2}>
-                  <Text fontWeight="semibold">前提 / メモ</Text>
-                  <List.Root gap={1}>
-                    {breakdown.assumptions.map((item) => (
-                      <List.Item key={item}>{item}</List.Item>
-                    ))}
-                  </List.Root>
-                </Stack>
-              ) : null}
-            </Stack>
-          ) : (
-            <Stack gap={2}>
-              <Text fontSize="sm" color="fg.muted">
-                結果がありません。失敗した場合は履歴から詳細を確認してください。
-              </Text>
-              {displayErrorMessage ? (
-                <Text fontSize="sm" color="red.500">
-                  {displayErrorMessage}
-                </Text>
-              ) : null}
-            </Stack>
-          )}
-        </Tabs.Content>
-
-        <Tabs.Content value="history" pt={4}>
-          {history.length === 0 ? (
-            <Text fontSize="sm" color="fg.muted">
-              まだ履歴はありません。
+      {breakdown ? (
+        <Stack gap={5}>
+          <Stack gap={2}>
+            <Text fontSize="xs" color="fg.muted" fontWeight="semibold">
+              目標
             </Text>
-          ) : (
+            <Text>{breakdown.goal}</Text>
+            <Text fontSize="xs" color="fg.muted" fontWeight="semibold" pt={2}>
+              要約
+            </Text>
+            <Text color="fg.muted">{breakdown.summary}</Text>
+          </Stack>
+
+          <Stack gap={3}>
+            <HStack justify="space-between" flexWrap="wrap">
+              <Text fontWeight="semibold">サブタスク</Text>
+              <Badge colorPalette="teal" variant="subtle">
+                {breakdown.subtasks.length} 件
+              </Badge>
+            </HStack>
             <List.Root gap={3}>
-              {history.map((item) => (
-                <List.Item key={item.workflowId}>
-                  <HStack justify="space-between" align="start" gap={3}>
-                    <Stack gap={0.5}>
-                      <Text fontWeight="medium">{toHistoryTitle(item)}</Text>
-                      <Text fontSize="xs" color="fg.muted">
-                        {formatDateTime(item.createdAt, item.timezone)} /{" "}
-                        {toStatusLabelFromRecord(item.status)}
+              {breakdown.subtasks.map((subtask, index) => (
+                <List.Item key={`${index}-${subtask.title}`}>
+                  <Box borderWidth="1px" borderRadius="xl" p={3}>
+                    <Stack gap={1}>
+                      <Text fontWeight="medium">{subtask.title}</Text>
+                      <Text fontSize="sm" color="fg.muted">
+                        {subtask.description}
                       </Text>
+                      <HStack gap={2} flexWrap="wrap">
+                        <Badge colorPalette="blue" variant="subtle">
+                          期限:{" "}
+                          {formatDateTime(subtask.dueAt, record?.timezone)}
+                        </Badge>
+                        <Badge colorPalette="teal" variant="subtle">
+                          {subtask.durationMinutes} 分
+                        </Badge>
+                      </HStack>
                     </Stack>
-                    <Button
-                      size="xs"
-                      variant="outline"
-                      onClick={() => onSelectHistory(item)}
-                    >
-                      表示
-                    </Button>
-                  </HStack>
+                  </Box>
                 </List.Item>
               ))}
             </List.Root>
-          )}
-        </Tabs.Content>
-      </Tabs.Root>
+          </Stack>
+
+          {calendarResult ? (
+            <Stack gap={3}>
+              <HStack justify="space-between" flexWrap="wrap">
+                <Text fontWeight="semibold">Google Calendar 反映結果</Text>
+                <Badge colorPalette="blue" variant="subtle">
+                  {calendarResult.createdEvents.length} 件
+                </Badge>
+              </HStack>
+
+              {calendarResult.createdEvents.length === 0 ? (
+                <Text fontSize="sm" color="fg.muted">
+                  作成された予定はありません。
+                </Text>
+              ) : (
+                <List.Root gap={2}>
+                  {calendarResult.createdEvents.map((eventItem) => (
+                    <List.Item key={eventItem.id}>
+                      <HStack justify="space-between" align="start" gap={3}>
+                        <Stack gap={1}>
+                          <Text fontWeight="medium">{eventItem.summary}</Text>
+                          <Text fontSize="sm" color="fg.muted">
+                            {formatDateTime(
+                              eventItem.startAt,
+                              calendarResult.timezone,
+                            )}{" "}
+                            -{" "}
+                            {formatDateTime(
+                              eventItem.endAt,
+                              calendarResult.timezone,
+                            )}
+                          </Text>
+                        </Stack>
+                        {eventItem.htmlLink ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              if (!eventItem.htmlLink) {
+                                return;
+                              }
+                              window.open(
+                                eventItem.htmlLink,
+                                "_blank",
+                                "noopener,noreferrer",
+                              );
+                            }}
+                          >
+                            開く
+                          </Button>
+                        ) : (
+                          <Badge colorPalette="gray">リンクなし</Badge>
+                        )}
+                      </HStack>
+                    </List.Item>
+                  ))}
+                </List.Root>
+              )}
+            </Stack>
+          ) : null}
+
+          {breakdown.assumptions.length > 0 ? (
+            <Stack gap={2}>
+              <Text fontWeight="semibold">前提 / メモ</Text>
+              <List.Root gap={1}>
+                {breakdown.assumptions.map((item) => (
+                  <List.Item key={item}>{item}</List.Item>
+                ))}
+              </List.Root>
+            </Stack>
+          ) : null}
+        </Stack>
+      ) : (
+        <Stack gap={2}>
+          <Text fontSize="sm" color="fg.muted">
+            結果がありません。失敗した場合は履歴から詳細を確認してください。
+          </Text>
+          {displayErrorMessage ? (
+            <Text fontSize="sm" color="red.500">
+              {displayErrorMessage}
+            </Text>
+          ) : null}
+        </Stack>
+      )}
     </Stack>
   );
 }
