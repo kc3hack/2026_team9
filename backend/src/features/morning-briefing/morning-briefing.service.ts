@@ -38,7 +38,7 @@ function toJstMinutes(iso: string): number {
 
 /** Subtract `minutes` from a JST minutes-since-midnight value → "HH:mm". */
 function subtractMinutes(jstMinOfDay: number, minutes: number): string {
-  const total = ((jstMinOfDay - minutes) % 1440 + 1440) % 1440;
+  const total = (((jstMinOfDay - minutes) % 1440) + 1440) % 1440;
   const h = Math.floor(total / 60)
     .toString()
     .padStart(2, "0");
@@ -169,7 +169,13 @@ export async function getMorningBriefing(
   const briefings: EventBriefing[] = apiKey
     ? await Promise.all(
         withLocation.map((event) =>
-          buildEventBriefing(apiKey, req.currentLocation, event, prepMinutes, nowMinutes),
+          buildEventBriefing(
+            apiKey,
+            req.currentLocation,
+            event,
+            prepMinutes,
+            nowMinutes,
+          ),
         ),
       )
     : withLocation.map((event) => ({
@@ -191,7 +197,7 @@ export async function getMorningBriefing(
   });
 
   // The first (earliest) briefing is the most urgent
-  const urgent = briefings.length > 0 ? briefings[0]! : null;
+  const urgent = briefings.length > 0 ? (briefings[0] ?? null) : null;
 
   // 3️⃣ Weather — check at the departure location around the leave-by time
   let weather: WeatherInfo | null = null;

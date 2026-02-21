@@ -29,7 +29,10 @@ async function refreshGoogleAccessToken(
   }
 
   const data = (await res.json()) as Record<string, unknown>;
-  if (typeof data.access_token !== "string" || typeof data.expires_in !== "number") {
+  if (
+    typeof data.access_token !== "string" ||
+    typeof data.expires_in !== "number"
+  ) {
     return null;
   }
   return { access_token: data.access_token, expires_in: data.expires_in };
@@ -59,8 +62,10 @@ async function getGoogleAccessToken(
   const google = accounts.find((a) => a.providerId === "google");
   if (!google) return null;
 
-  const accessToken = typeof google.accessToken === "string" ? google.accessToken : null;
-  const refreshToken = typeof google.refreshToken === "string" ? google.refreshToken : null;
+  const accessToken =
+    typeof google.accessToken === "string" ? google.accessToken : null;
+  const refreshToken =
+    typeof google.refreshToken === "string" ? google.refreshToken : null;
 
   // Check whether the current access token is still valid.
   const expiresAt =
@@ -88,13 +93,10 @@ async function getGoogleAccessToken(
 
   // Persist the refreshed token (Better Auth encrypts transparently).
   try {
-    await ctx.internalAdapter.updateAccount(
-      google.id as string,
-      {
-        accessToken: refreshed.access_token,
-        accessTokenExpiresAt: new Date(Date.now() + refreshed.expires_in * 1000),
-      },
-    );
+    await ctx.internalAdapter.updateAccount(google.id as string, {
+      accessToken: refreshed.access_token,
+      accessTokenExpiresAt: new Date(Date.now() + refreshed.expires_in * 1000),
+    });
   } catch (e) {
     console.error("Failed to persist refreshed token:", e);
     // We still got a valid token — continue.
@@ -163,7 +165,7 @@ export async function getTodayEvents(
     }));
 
   const timedEvents = events.filter((e) => !e.isAllDay);
-  const earliestEvent = timedEvents.length > 0 ? timedEvents[0]! : null;
+  const earliestEvent = timedEvents.length > 0 ? (timedEvents[0] ?? null) : null;
 
   return { date, events, earliestEvent };
 }

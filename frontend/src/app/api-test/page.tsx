@@ -24,12 +24,7 @@ import {
 // Types
 // ---------------------------------------------------------------------------
 
-type TestId =
-  | "session"
-  | "calendar"
-  | "transit"
-  | "weather"
-  | "briefing";
+type TestId = "session" | "calendar" | "transit" | "weather" | "briefing";
 
 type TestResult = {
   status: "idle" | "running" | "ok" | "error";
@@ -56,31 +51,28 @@ export default function ApiTestPage() {
   const [destination, setDestination] = useState("京都駅");
   const [briefingLocation, setBriefingLocation] = useState("大阪駅");
 
-  const run = useCallback(
-    async (id: TestId, fn: () => Promise<unknown>) => {
+  const run = useCallback(async (id: TestId, fn: () => Promise<unknown>) => {
+    setResults((prev) => ({
+      ...prev,
+      [id]: { status: "running" as const },
+    }));
+    const t0 = performance.now();
+    try {
+      const data = await fn();
+      const ms = Math.round(performance.now() - t0);
       setResults((prev) => ({
         ...prev,
-        [id]: { status: "running" as const },
+        [id]: { status: "ok" as const, data, ms },
       }));
-      const t0 = performance.now();
-      try {
-        const data = await fn();
-        const ms = Math.round(performance.now() - t0);
-        setResults((prev) => ({
-          ...prev,
-          [id]: { status: "ok" as const, data, ms },
-        }));
-      } catch (e: unknown) {
-        const ms = Math.round(performance.now() - t0);
-        const error = e instanceof Error ? e.message : String(e);
-        setResults((prev) => ({
-          ...prev,
-          [id]: { status: "error" as const, error, ms },
-        }));
-      }
-    },
-    [],
-  );
+    } catch (e: unknown) {
+      const ms = Math.round(performance.now() - t0);
+      const error = e instanceof Error ? e.message : String(e);
+      setResults((prev) => ({
+        ...prev,
+        [id]: { status: "error" as const, error, ms },
+      }));
+    }
+  }, []);
 
   const statusColor = (s: TestResult["status"]) => {
     if (s === "ok") return "green";
@@ -198,7 +190,8 @@ export default function ApiTestPage() {
             statusColor={statusColor}
           >
             <Text fontSize="xs" color="gray.500">
-              ※ 天気は朝ブリーフィング内で取得されます。下の「5. 朝ブリーフィング」で確認してください。
+              ※ 天気は朝ブリーフィング内で取得されます。下の「5.
+              朝ブリーフィング」で確認してください。
             </Text>
           </TestCard>
 
@@ -223,9 +216,7 @@ export default function ApiTestPage() {
                 size="sm"
                 colorPalette="orange"
                 onClick={() =>
-                  run("briefing", () =>
-                    fetchMorningBriefing(briefingLocation),
-                  )
+                  run("briefing", () => fetchMorningBriefing(briefingLocation))
                 }
                 disabled={results.briefing.status === "running"}
               >
@@ -328,7 +319,13 @@ function TestCard({
         )}
 
         {result.status === "ok" && result.data != null && (
-          <Box bg="green.50" borderRadius="lg" p={3} maxH="300px" overflow="auto">
+          <Box
+            bg="green.50"
+            borderRadius="lg"
+            p={3}
+            maxH="300px"
+            overflow="auto"
+          >
             <Text fontSize="sm" color="green.700" fontWeight="bold">
               レスポンス
             </Text>

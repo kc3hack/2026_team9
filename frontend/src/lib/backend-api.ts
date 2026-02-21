@@ -37,7 +37,8 @@ export async function fetchCalendarToday(): Promise<unknown> {
   const res = await fetch(endpoint("/calendar/today"), {
     credentials: "include",
   });
-  if (!res.ok) throw new Error(`Calendar API: ${res.status} ${await res.text()}`);
+  if (!res.ok)
+    throw new Error(`Calendar API: ${res.status} ${await res.text()}`);
   return res.json();
 }
 
@@ -56,7 +57,8 @@ export async function fetchTransitDirections(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ origin, destination, arrivalTime }),
   });
-  if (!res.ok) throw new Error(`Transit API: ${res.status} ${await res.text()}`);
+  if (!res.ok)
+    throw new Error(`Transit API: ${res.status} ${await res.text()}`);
   return res.json();
 }
 
@@ -74,6 +76,7 @@ export async function fetchMorningBriefing(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ currentLocation, prepMinutes }),
   });
-  if (!res.ok) throw new Error(`Briefing API: ${res.status} ${await res.text()}`);
+  if (!res.ok)
+    throw new Error(`Briefing API: ${res.status} ${await res.text()}`);
   return res.json();
 }

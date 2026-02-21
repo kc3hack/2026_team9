@@ -142,8 +142,10 @@ export async function getTransitDirections(
                   (td.transitLine?.nameShort as string) ??
                   (td.transitLine?.name as string) ??
                   "",
-                departureStop: (td.stopDetails?.departureStop?.name as string) ?? "",
-                arrivalStop: (td.stopDetails?.arrivalStop?.name as string) ?? "",
+                departureStop:
+                  (td.stopDetails?.departureStop?.name as string) ?? "",
+                arrivalStop:
+                  (td.stopDetails?.arrivalStop?.name as string) ?? "",
                 numStops: (td.stopCount as number) ?? 0,
               }
             : undefined,

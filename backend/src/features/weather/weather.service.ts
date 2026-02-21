@@ -85,9 +85,7 @@ async function fetchHourlyForecast(
       timezone: "Asia/Tokyo",
       forecast_days: "1",
     });
-    const res = await fetch(
-      `https://api.open-meteo.com/v1/forecast?${params}`,
-    );
+    const res = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`);
     if (!res.ok) return [];
 
     // biome-ignore lint/suspicious/noExplicitAny: Open-Meteo forecast response
@@ -101,8 +99,7 @@ async function fetchHourlyForecast(
 
     return times.map((iso, i) => ({
       iso,
-      precipitationProbability:
-        typeof probs[i] === "number" ? probs[i] : null,
+      precipitationProbability: typeof probs[i] === "number" ? probs[i] : null,
       precipitationMm: typeof mms[i] === "number" ? mms[i] : null,
     }));
   } catch {
@@ -118,10 +115,7 @@ async function fetchHourlyForecast(
  * Find the hourly slot closest to `targetHHmm` (e.g. "08:12").
  * Open-Meteo returns times like "2026-02-22T08:00" so we match on the hour.
  */
-function pickSlot(
-  slots: HourlySlot[],
-  targetHHmm: string,
-): HourlySlot | null {
+function pickSlot(slots: HourlySlot[], targetHHmm: string): HourlySlot | null {
   if (slots.length === 0) return null;
 
   const [hStr] = targetHHmm.split(":");
@@ -154,7 +148,10 @@ function decideUmbrella(
   slot: HourlySlot | null,
   probThreshold: number,
   mmThreshold: number,
-): Pick<WeatherInfo, "umbrellaNeeded" | "reason" | "precipitationProbability" | "precipitationMm"> {
+): Pick<
+  WeatherInfo,
+  "umbrellaNeeded" | "reason" | "precipitationProbability" | "precipitationMm"
+> {
   if (!slot) {
     return {
       precipitationProbability: null,
@@ -218,7 +215,15 @@ function decideUmbrella(
 export async function getWeather(
   location: string,
   targetHHmm: string,
-  env?: Partial<Pick<Env, "WEATHER_DEFAULT_LAT" | "WEATHER_DEFAULT_LON" | "WEATHER_UMBRELLA_PROB_THRESHOLD" | "WEATHER_UMBRELLA_MM_THRESHOLD">>,
+  env?: Partial<
+    Pick<
+      Env,
+      | "WEATHER_DEFAULT_LAT"
+      | "WEATHER_DEFAULT_LON"
+      | "WEATHER_UMBRELLA_PROB_THRESHOLD"
+      | "WEATHER_UMBRELLA_MM_THRESHOLD"
+    >
+  >,
 ): Promise<WeatherInfo> {
   const probThreshold = env?.WEATHER_UMBRELLA_PROB_THRESHOLD
     ? Number(env.WEATHER_UMBRELLA_PROB_THRESHOLD)
@@ -229,8 +234,12 @@ export async function getWeather(
 
   // 1) Geocode the location
   const geo = await geocode(location);
-  const lat = geo?.lat ?? (env?.WEATHER_DEFAULT_LAT ? Number(env.WEATHER_DEFAULT_LAT) : FALLBACK_LAT);
-  const lon = geo?.lon ?? (env?.WEATHER_DEFAULT_LON ? Number(env.WEATHER_DEFAULT_LON) : FALLBACK_LON);
+  const lat =
+    geo?.lat ??
+    (env?.WEATHER_DEFAULT_LAT ? Number(env.WEATHER_DEFAULT_LAT) : FALLBACK_LAT);
+  const lon =
+    geo?.lon ??
+    (env?.WEATHER_DEFAULT_LON ? Number(env.WEATHER_DEFAULT_LON) : FALLBACK_LON);
   const locationName = geo?.name ?? FALLBACK_NAME;
 
   // 2) Fetch hourly forecast

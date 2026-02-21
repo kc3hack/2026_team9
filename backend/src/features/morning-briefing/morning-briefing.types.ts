@@ -1,5 +1,5 @@
 import type { CalendarEvent } from "../google-calendar/google-calendar.types";
-import type { TransitRoute, TransitStep } from "../transit/transit.types";
+import type { TransitRoute } from "../transit/transit.types";
 import type { WeatherInfo } from "../weather/weather.types";
 
 // ---------------------------------------------------------------------------
