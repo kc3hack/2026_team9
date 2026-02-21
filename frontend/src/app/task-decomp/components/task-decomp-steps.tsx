@@ -154,6 +154,35 @@ export function ComposeStep({
 }: ComposeStepProps) {
   return (
     <Stack gap={5}>
+      <Box
+        borderWidth="1px"
+        borderColor="var(--app-border)"
+        bg="var(--app-surface-soft)"
+        borderRadius="xl"
+        p={3}
+      >
+        <Stack gap={2}>
+          <Text fontSize="sm" fontWeight="semibold">
+            この画面で実行される処理
+          </Text>
+          <List.Root gap={1} ps={4}>
+            <List.Item fontSize="sm" color="fg.muted">
+              入力タスクを Workers AI で細分化します
+            </List.Item>
+            <List.Item fontSize="sm" color="fg.muted">
+              細分化結果を Google Calendar へ予定として追加します
+            </List.Item>
+            <List.Item fontSize="sm" color="fg.muted">
+              実行結果を D1 に保存し、画面へ反映します
+            </List.Item>
+          </List.Root>
+          <Text fontSize="xs" color="fg.muted">
+            Google Calendar は連携済みです。権限エラーが出た場合は
+            「Google権限を再認可」から再ログインしてください。
+          </Text>
+        </Stack>
+      </Box>
+
       <form onSubmit={onSubmit}>
         <Stack gap={4}>
           <Field.Root required>
