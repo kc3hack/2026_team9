@@ -192,6 +192,8 @@ export function ComposeStep({
               onChange={(event) => onTaskChange(event.target.value)}
               placeholder="例: ハッカソン発表までに、プロトタイプを提出可能な状態にする"
               minH="140px"
+              bg="var(--app-surface-soft)"
+              borderColor="var(--app-border)"
             />
           </Field.Root>
 
@@ -202,6 +204,8 @@ export function ComposeStep({
               onChange={(event) => onContextChange(event.target.value)}
               placeholder="例: 3人チーム、担当はフロント中心、毎日21時以降に作業"
               minH="96px"
+              bg="var(--app-surface-soft)"
+              borderColor="var(--app-border)"
             />
           </Field.Root>
 
@@ -212,6 +216,8 @@ export function ComposeStep({
                 type="datetime-local"
                 value={deadline}
                 onChange={(event) => onDeadlineChange(event.target.value)}
+                bg="var(--app-surface-soft)"
+                borderColor="var(--app-border)"
               />
               <Field.HelperText>
                 未入力でも、本文と文脈から期限を推測して分解します。
@@ -226,6 +232,8 @@ export function ComposeStep({
                 max={12}
                 value={maxSteps}
                 onChange={(event) => onMaxStepsChange(event.target.value)}
+                bg="var(--app-surface-soft)"
+                borderColor="var(--app-border)"
               />
             </Field.Root>
           </HStack>
