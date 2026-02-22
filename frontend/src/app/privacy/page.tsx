@@ -23,7 +23,7 @@ export default function PrivacyPage() {
         <Stack gap={6}>
           <Stack gap={2}>
             <Heading size="2xl" lineHeight="1.15">
-              プライバシーポリシー
+              ネボガード（NeboGuard）プライバシーポリシー
             </Heading>
             <Text fontSize="sm" color="fg.muted">
               最終更新日: {LAST_UPDATED}
@@ -38,7 +38,7 @@ export default function PrivacyPage() {
           >
             <Stack gap={4}>
               <Text>
-                本サービスは、ハッカソンで開発した Google
+                ネボガード（以下「本サービス」）は、ハッカソンで開発した Google
                 カレンダー予定の細分化支援のために、以下の情報を取り扱います。
               </Text>
               <List.Root gap={2}>
