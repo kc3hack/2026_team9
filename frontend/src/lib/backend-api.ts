@@ -96,3 +96,41 @@ export async function fetchMorningBriefing(
     throw new Error(`Briefing API: ${res.status} ${await res.text()}`);
   return res.json();
 }
+
+// ---------------------------------------------------------------------------
+// Morning Routine (D1 persisted)
+// ---------------------------------------------------------------------------
+
+export type MorningRoutineItem = {
+  id: string;
+  label: string;
+  minutes: number;
+};
+
+export type MorningRoutineResponse = {
+  items: MorningRoutineItem[];
+};
+
+export async function fetchMorningRoutine(): Promise<MorningRoutineResponse> {
+  const res = await fetch(endpoint("/briefing/routine"), {
+    method: "GET",
+    credentials: "include",
+  });
+  if (!res.ok)
+    throw new Error(`Routine API: ${res.status} ${await res.text()}`);
+  return (await res.json()) as MorningRoutineResponse;
+}
+
+export async function updateMorningRoutine(
+  items: MorningRoutineItem[],
+): Promise<MorningRoutineResponse> {
+  const res = await fetch(endpoint("/briefing/routine"), {
+    method: "PUT",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ items }),
+  });
+  if (!res.ok)
+    throw new Error(`Routine API: ${res.status} ${await res.text()}`);
+  return (await res.json()) as MorningRoutineResponse;
+}

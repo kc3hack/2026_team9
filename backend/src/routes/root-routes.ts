@@ -7,6 +7,8 @@ export function registerRootRoutes(app: App): void {
       endpoints: [
         "ALL /api/auth/*",
         "POST /briefing/morning",
+        "GET /briefing/routine",
+        "PUT /briefing/routine",
         "GET /calendar/today",
         "POST /transit/directions",
         "POST /tasks/decompose",

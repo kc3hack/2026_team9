@@ -4,16 +4,23 @@ import {
   Box,
   Button,
   Container,
+  Drawer,
   Grid,
   GridItem,
   HStack,
   Input,
+  Portal,
   Stack,
   Text,
 } from "@chakra-ui/react";
 import NextLink from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fetchMorningBriefing } from "@/lib/backend-api";
+import {
+  fetchMorningBriefing,
+  fetchMorningRoutine,
+  type MorningRoutineItem,
+  updateMorningRoutine,
+} from "@/lib/backend-api";
 import {
   getTaskWorkflowHistory,
   type WorkflowRecord,
@@ -81,17 +88,11 @@ type DecomposedTaskEvent = {
 };
 
 type AlarmStatus = "idle" | "scheduled" | "ringing";
-type MorningRoutineItem = {
-  id: string;
-  label: string;
-  minutes: number;
-};
 
 const TODAY_EVENTS_LIMIT = 3;
 const DECOMPOSED_EVENTS_LIMIT = 3;
 const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const WAKEUP_ALARM_ENABLED_KEY = "dashboard:wakeup-alarm-enabled";
-const MORNING_ROUTINE_STORAGE_KEY = "dashboard:morning-routine:v1";
 const DEFAULT_MORNING_ROUTINE: MorningRoutineItem[] = [
   { id: "prepare", label: "身支度", minutes: 20 },
   { id: "breakfast", label: "朝食", minutes: 15 },
@@ -239,6 +240,39 @@ function inferTransferCount(summary: string | null | undefined): number | null {
   return null;
 }
 
+function shortenSpeechDestination(value: string): string {
+  const normalized = value
+    .replace(/〒\s*\d{3}-?\d{4}\s*/gu, "")
+    .replace(/\s+/gu, " ")
+    .trim();
+  if (normalized.length === 0) {
+    return "目的地未設定";
+  }
+
+  const stationMatch = normalized.match(/([^\s、,]{1,12}駅)/u);
+  if (stationMatch?.[1]) {
+    return stationMatch[1];
+  }
+
+  const landmarkMatch = normalized.match(
+    /([^\s、,]{1,14}(?:空港|ビル|大学|病院|公園|会館))/u,
+  );
+  if (landmarkMatch?.[1]) {
+    return landmarkMatch[1];
+  }
+
+  const firstChunk = normalized.split(/[、,/]/u)[0]?.trim();
+  if (!firstChunk) {
+    return "目的地未設定";
+  }
+
+  if (firstChunk.length <= 14) {
+    return firstChunk;
+  }
+
+  return `${firstChunk.slice(0, 14)}付近`;
+}
+
 function buildWakeupSpeech(
   urgent: EventBriefing | null,
   weather: WeatherInfo | null,
@@ -252,6 +286,7 @@ function buildWakeupSpeech(
     urgent.destination?.trim() ||
     urgent.event.location?.trim() ||
     "目的地未設定";
+  const speechDestination = shortenSpeechDestination(destination);
   const transferCount = inferTransferCount(urgent.route?.summary ?? null);
   const transferText =
     transferCount !== null
@@ -267,7 +302,7 @@ function buildWakeupSpeech(
     ? "雨のため傘を持ってください。"
     : "傘は不要です。";
 
-  return `今日は${startAt}から${destination}。${transferText}、${transitText}。${urgent.leaveBy}出発推奨。${umbrellaText}`;
+  return `今日は${startAt}から${speechDestination}。${transferText}、${transitText}。${urgent.leaveBy}出発推奨。${umbrellaText}`;
 }
 
 export default function DashboardPage() {
@@ -293,17 +328,81 @@ export default function DashboardPage() {
   const [morningRoutine, setMorningRoutine] = useState<MorningRoutineItem[]>(
     DEFAULT_MORNING_ROUTINE,
   );
+  const [routineStatus, setRoutineStatus] = useState<
+    "loading" | "ready" | "error"
+  >("loading");
+  const [routineError, setRoutineError] = useState<string | null>(null);
+  const [isRoutineDrawerOpen, setIsRoutineDrawerOpen] = useState(false);
+  const [routineDraft, setRoutineDraft] = useState<MorningRoutineItem[]>(
+    DEFAULT_MORNING_ROUTINE,
+  );
+  const [isRoutineSaving, setIsRoutineSaving] = useState(false);
+  const [routineEditorError, setRoutineEditorError] = useState<string | null>(
+    null,
+  );
   const alarmTimeoutRef = useRef<number | null>(null);
   const alarmIntervalRef = useRef<number | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const routineTotalMinutes = useMemo(() => {
+    const total = morningRoutine.reduce(
+      (sum, item) => sum + clampMinutes(item.minutes),
+      0,
+    );
+    return Math.max(1, Math.min(300, total));
+  }, [morningRoutine]);
+  const routineDraftTotalMinutes = useMemo(() => {
+    const total = routineDraft.reduce(
+      (sum, item) => sum + clampMinutes(item.minutes),
+      0,
+    );
+    return Math.max(1, Math.min(300, total));
+  }, [routineDraft]);
 
   useEffect(() => {
+    let active = true;
+    setRoutineStatus("loading");
+    setRoutineError(null);
+
+    fetchMorningRoutine()
+      .then((response) => {
+        if (!active) {
+          return;
+        }
+        const normalized = normalizeRoutineItems(response.items);
+        if (normalized) {
+          setMorningRoutine(normalized);
+        } else {
+          setMorningRoutine(DEFAULT_MORNING_ROUTINE);
+        }
+        setRoutineStatus("ready");
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+        setMorningRoutine(DEFAULT_MORNING_ROUTINE);
+        setRoutineStatus("error");
+        setRoutineError(
+          "朝ルーティンを取得できませんでした。既定値を使用します。",
+        );
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (routineStatus === "loading") {
+      return;
+    }
+
     let active = true;
     setState((prev) => ({ ...prev, status: "loading", errorType: undefined }));
     setTaskEventsStatus("loading");
 
     Promise.allSettled([
-      fetchMorningBriefing(currentLocation, 30, forceRefresh),
+      fetchMorningBriefing(currentLocation, routineTotalMinutes, forceRefresh),
       getTaskWorkflowHistory(50),
     ])
       .then(([briefingResult, workflowResult]) => {
@@ -352,7 +451,7 @@ export default function DashboardPage() {
     return () => {
       active = false;
     };
-  }, [currentLocation, forceRefresh]);
+  }, [currentLocation, forceRefresh, routineStatus, routineTotalMinutes]);
 
   const clearAlarmTimeout = useCallback(() => {
     if (alarmTimeoutRef.current !== null) {
@@ -379,24 +478,26 @@ export default function DashboardPage() {
       }
 
       const w = window as Window & { webkitAudioContext?: typeof AudioContext };
-      const AudioContextCtor = w.AudioContext ?? w.webkitAudioContext;
+      const AudioContextCtor = globalThis.AudioContext ?? w.webkitAudioContext;
       if (!AudioContextCtor) {
         return null;
       }
 
-      if (!audioContextRef.current) {
-        audioContextRef.current = new AudioContextCtor();
+      let context = audioContextRef.current;
+      if (!context) {
+        context = new AudioContextCtor();
+        audioContextRef.current = context;
       }
 
-      if (audioContextRef.current.state === "suspended") {
-        await audioContextRef.current.resume().catch(() => undefined);
+      if (context.state === "suspended") {
+        await context.resume().catch(() => undefined);
       }
 
-      if (audioContextRef.current.state !== "running") {
+      if (context.state !== "running") {
         return null;
       }
 
-      return audioContextRef.current;
+      return context;
     }, []);
 
   const playAlarmTone = useCallback(async (): Promise<boolean> => {
@@ -460,21 +561,6 @@ export default function DashboardPage() {
     if (saved === "1") {
       setAlarmEnabled(true);
     }
-
-    const routineRaw = window.localStorage.getItem(MORNING_ROUTINE_STORAGE_KEY);
-    if (!routineRaw) {
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(routineRaw) as unknown;
-      const normalized = normalizeRoutineItems(parsed);
-      if (normalized) {
-        setMorningRoutine(normalized);
-      }
-    } catch {
-      // Ignore broken storage payloads and fall back to defaults.
-    }
   }, []);
 
   useEffect(() => {
@@ -486,16 +572,6 @@ export default function DashboardPage() {
       alarmEnabled ? "1" : "0",
     );
   }, [alarmEnabled]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    window.localStorage.setItem(
-      MORNING_ROUTINE_STORAGE_KEY,
-      JSON.stringify(morningRoutine),
-    );
-  }, [morningRoutine]);
 
   useEffect(() => {
     return () => {
@@ -516,13 +592,6 @@ export default function DashboardPage() {
 
   const urgent = state.data?.urgent ?? null;
   const departure = urgent?.leaveBy ?? "--:--";
-  const routineTotalMinutes = useMemo(() => {
-    const total = morningRoutine.reduce(
-      (sum, item) => sum + clampMinutes(item.minutes),
-      0,
-    );
-    return Math.max(1, Math.min(300, total));
-  }, [morningRoutine]);
   const lateRisk = urgent?.lateRiskPercent ?? 0;
   const slack = urgent?.slackMinutes ?? 0;
   const transitSummary = urgent?.route?.summary ?? "経路情報なし";
@@ -634,8 +703,14 @@ export default function DashboardPage() {
     }
   }, [speakBriefing, stopAlarmSound, urgent, weather]);
 
+  const handleOpenRoutineEditor = useCallback(() => {
+    setRoutineDraft(morningRoutine.map((item) => ({ ...item })));
+    setRoutineEditorError(null);
+    setIsRoutineDrawerOpen(true);
+  }, [morningRoutine]);
+
   const handleRoutineLabelChange = useCallback((id: string, value: string) => {
-    setMorningRoutine((prev) =>
+    setRoutineDraft((prev) =>
       prev.map((item) => (item.id === id ? { ...item, label: value } : item)),
     );
   }, []);
@@ -644,7 +719,7 @@ export default function DashboardPage() {
     (id: string, value: string) => {
       const parsed = Number(value);
       const minutes = Number.isFinite(parsed) ? clampMinutes(parsed) : 0;
-      setMorningRoutine((prev) =>
+      setRoutineDraft((prev) =>
         prev.map((item) => (item.id === id ? { ...item, minutes } : item)),
       );
     },
@@ -652,7 +727,7 @@ export default function DashboardPage() {
   );
 
   const handleAddRoutineItem = useCallback(() => {
-    setMorningRoutine((prev) => [
+    setRoutineDraft((prev) => [
       ...prev,
       {
         id: createRoutineItemId(),
@@ -663,13 +738,42 @@ export default function DashboardPage() {
   }, []);
 
   const handleRemoveRoutineItem = useCallback((id: string) => {
-    setMorningRoutine((prev) => {
+    setRoutineDraft((prev) => {
       if (prev.length <= 1) {
         return prev;
       }
       return prev.filter((item) => item.id !== id);
     });
   }, []);
+
+  const handleSaveRoutine = useCallback(async () => {
+    const normalizedDraft = normalizeRoutineItems(routineDraft);
+    if (!normalizedDraft) {
+      setRoutineEditorError(
+        "ルーティン項目を1件以上設定してください（ラベル必須）。",
+      );
+      return;
+    }
+
+    setRoutineEditorError(null);
+    setIsRoutineSaving(true);
+    try {
+      const response = await updateMorningRoutine(normalizedDraft);
+      const saved = normalizeRoutineItems(response.items) ?? normalizedDraft;
+      setMorningRoutine(saved);
+      setRoutineDraft(saved.map((item) => ({ ...item })));
+      setIsRoutineDrawerOpen(false);
+      setRoutineStatus("ready");
+      setRoutineError(null);
+      setForceRefresh(true);
+    } catch {
+      setRoutineEditorError(
+        "保存に失敗しました。時間をおいて再試行してください。",
+      );
+    } finally {
+      setIsRoutineSaving(false);
+    }
+  }, [routineDraft]);
 
   useEffect(() => {
     clearAlarmTimeout();
@@ -866,56 +970,34 @@ export default function DashboardPage() {
                         朝ルーティン（起床から出発まで）合計:{" "}
                         {routineTotalMinutes}分
                       </Text>
+                      {routineStatus === "loading" ? (
+                        <Text fontSize="xs" color="gray.500">
+                          朝ルーティンを読み込み中...
+                        </Text>
+                      ) : null}
 
-                      <Stack gap={2}>
+                      <Stack gap={1}>
                         {morningRoutine.map((item) => (
-                          <HStack
-                            key={item.id}
-                            gap={2}
-                            align="center"
-                            flexWrap={{ base: "wrap", sm: "nowrap" }}
-                          >
-                            <Input
-                              size="xs"
-                              value={item.label}
-                              onChange={(e) =>
-                                handleRoutineLabelChange(
-                                  item.id,
-                                  e.target.value,
-                                )
-                              }
-                              bg="white"
-                              minW={{ base: "100%", sm: "180px" }}
-                              maxW={{ base: "100%", sm: "220px" }}
+                          <HStack key={item.id} gap={2} align="center">
+                            <Box
+                              w="7px"
+                              h="7px"
+                              borderRadius="full"
+                              bg="gray.400"
+                              flexShrink={0}
                             />
-                            <Input
-                              size="xs"
-                              type="number"
-                              min={0}
-                              max={180}
-                              step={1}
-                              value={item.minutes.toString()}
-                              onChange={(e) =>
-                                handleRoutineMinutesChange(
-                                  item.id,
-                                  e.target.value,
-                                )
-                              }
-                              w={{ base: "92px", sm: "84px" }}
-                              bg="white"
-                            />
-                            <Text fontSize="xs" color="gray.600">
-                              分
-                            </Text>
-                            <Button
-                              size="xs"
-                              variant="outline"
-                              colorPalette="gray"
-                              onClick={() => handleRemoveRoutineItem(item.id)}
-                              disabled={morningRoutine.length <= 1}
+                            <Text
+                              fontSize="sm"
+                              color="gray.700"
+                              overflow="hidden"
+                              textOverflow="ellipsis"
+                              whiteSpace="nowrap"
                             >
-                              削除
-                            </Button>
+                              {truncateText(item.label, 22)}
+                            </Text>
+                            <Text fontSize="sm" color="gray.500" ml="auto">
+                              {clampMinutes(item.minutes)}分
+                            </Text>
                           </HStack>
                         ))}
                       </Stack>
@@ -925,11 +1007,18 @@ export default function DashboardPage() {
                           size="xs"
                           variant="outline"
                           colorPalette="blue"
-                          onClick={handleAddRoutineItem}
+                          onClick={handleOpenRoutineEditor}
+                          disabled={routineStatus === "loading"}
                         >
-                          ルーティン項目を追加
+                          ルーティンを編集
                         </Button>
                       </HStack>
+
+                      {routineError ? (
+                        <Text fontSize="xs" color="orange.700">
+                          {routineError}
+                        </Text>
+                      ) : null}
 
                       <HStack gap={3} flexWrap="wrap">
                         <Text
@@ -1000,7 +1089,7 @@ export default function DashboardPage() {
                       ) : null}
 
                       {lastGuidanceText ? (
-                        <Text fontSize="xs" color="gray.600" noOfLines={2}>
+                        <Text fontSize="xs" color="gray.600" lineClamp={2}>
                           案内: {lastGuidanceText}
                         </Text>
                       ) : null}
@@ -1339,6 +1428,111 @@ export default function DashboardPage() {
           </Stack>
         </Box>
       </Container>
+
+      <Drawer.Root
+        open={isRoutineDrawerOpen}
+        onOpenChange={(details) => {
+          setIsRoutineDrawerOpen(details.open);
+          if (!details.open) {
+            setRoutineEditorError(null);
+          }
+        }}
+        size={{ base: "full", md: "md" }}
+      >
+        <Portal>
+          <Drawer.Backdrop />
+          <Drawer.Positioner>
+            <Drawer.Content>
+              <Drawer.Header>
+                <Drawer.Title>朝ルーティン編集</Drawer.Title>
+                <Drawer.Description>
+                  起床から出発までに必要な項目と時間を設定します。
+                </Drawer.Description>
+              </Drawer.Header>
+              <Drawer.Body>
+                <Stack gap={3}>
+                  {routineDraft.map((item) => (
+                    <HStack
+                      key={item.id}
+                      gap={2}
+                      align="center"
+                      flexWrap={{ base: "wrap", sm: "nowrap" }}
+                    >
+                      <Input
+                        size="sm"
+                        value={item.label}
+                        onChange={(e) =>
+                          handleRoutineLabelChange(item.id, e.target.value)
+                        }
+                        bg="white"
+                        minW={{ base: "100%", sm: "220px" }}
+                        maxW={{ base: "100%", sm: "260px" }}
+                      />
+                      <Input
+                        size="sm"
+                        type="number"
+                        min={0}
+                        max={180}
+                        step={1}
+                        value={item.minutes.toString()}
+                        onChange={(e) =>
+                          handleRoutineMinutesChange(item.id, e.target.value)
+                        }
+                        w={{ base: "104px", sm: "90px" }}
+                        bg="white"
+                      />
+                      <Text fontSize="sm" color="gray.600">
+                        分
+                      </Text>
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        colorPalette="gray"
+                        onClick={() => handleRemoveRoutineItem(item.id)}
+                        disabled={routineDraft.length <= 1}
+                      >
+                        削除
+                      </Button>
+                    </HStack>
+                  ))}
+
+                  <HStack gap={2} flexWrap="wrap">
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      colorPalette="blue"
+                      onClick={handleAddRoutineItem}
+                    >
+                      項目を追加
+                    </Button>
+                    <Text fontSize="sm" color="gray.600">
+                      合計 {routineDraftTotalMinutes}分
+                    </Text>
+                  </HStack>
+
+                  {routineEditorError ? (
+                    <Text color="red.600" fontSize="sm">
+                      {routineEditorError}
+                    </Text>
+                  ) : null}
+                </Stack>
+              </Drawer.Body>
+              <Drawer.Footer>
+                <Drawer.ActionTrigger asChild>
+                  <Button variant="outline">キャンセル</Button>
+                </Drawer.ActionTrigger>
+                <Button
+                  colorPalette="blue"
+                  onClick={() => void handleSaveRoutine()}
+                  loading={isRoutineSaving}
+                >
+                  保存
+                </Button>
+              </Drawer.Footer>
+            </Drawer.Content>
+          </Drawer.Positioner>
+        </Portal>
+      </Drawer.Root>
     </Box>
   );
 }

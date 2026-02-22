@@ -4,6 +4,7 @@ import { getAllowedOrigins, isAllowedOrigin } from "./lib/origins";
 import { registerAuthRoutes } from "./routes/auth-routes";
 import { registerBriefingRoutes } from "./routes/briefing-routes";
 import { registerCalendarRoutes } from "./routes/calendar-routes";
+import { registerMorningRoutineRoutes } from "./routes/morning-routine-routes";
 import { registerRootRoutes } from "./routes/root-routes";
 import { registerTaskRoutes } from "./routes/task-routes";
 import { registerTransitRoutes } from "./routes/transit-routes";
@@ -53,6 +54,7 @@ export function createApp(): App {
   registerRootRoutes(app);
   registerAuthRoutes(app);
   registerBriefingRoutes(app);
+  registerMorningRoutineRoutes(app);
   registerCalendarRoutes(app);
   registerTaskRoutes(app);
   registerTransitRoutes(app);
