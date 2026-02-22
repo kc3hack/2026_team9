@@ -87,7 +87,12 @@ export default function HomePage() {
               そのまま行動に移れる朝をつくるためのアプリです。
             </Text>
             <HStack gap={3} flexWrap="wrap">
-              <Button asChild colorPalette="blue" size="lg" fontWeight="semibold">
+              <Button
+                asChild
+                colorPalette="blue"
+                size="lg"
+                fontWeight="semibold"
+              >
                 <NextLink href="/dashboard">今日の朝情報を見る</NextLink>
               </Button>
               <Button asChild variant="outline" size="lg" fontWeight="semibold">
@@ -112,17 +117,33 @@ export default function HomePage() {
                 >
                   このアプリで減らせる迷い
                 </Heading>
-                <Text fontSize={{ base: "md", md: "lg" }} lineHeight="1.8" color="fg.muted">
+                <Text
+                  fontSize={{ base: "md", md: "lg" }}
+                  lineHeight="1.8"
+                  color="fg.muted"
+                >
                   朝に必要な情報は多くありません。出発時刻、天気、移動の乱れを素早く判断できる状態を目指します。
                 </Text>
                 <List.Root gap={2} ps={5}>
-                  <List.Item color="fg.muted" fontSize={{ base: "sm", md: "md" }} lineHeight="1.7">
+                  <List.Item
+                    color="fg.muted"
+                    fontSize={{ base: "sm", md: "md" }}
+                    lineHeight="1.7"
+                  >
                     予定ごとの出発時刻をその場で計算しなくてよい
                   </List.Item>
-                  <List.Item color="fg.muted" fontSize={{ base: "sm", md: "md" }} lineHeight="1.7">
+                  <List.Item
+                    color="fg.muted"
+                    fontSize={{ base: "sm", md: "md" }}
+                    lineHeight="1.7"
+                  >
                     複数アプリを開いて情報を照合しなくてよい
                   </List.Item>
-                  <List.Item color="fg.muted" fontSize={{ base: "sm", md: "md" }} lineHeight="1.7">
+                  <List.Item
+                    color="fg.muted"
+                    fontSize={{ base: "sm", md: "md" }}
+                    lineHeight="1.7"
+                  >
                     「今すぐ何をすべきか」を一文で確認できる
                   </List.Item>
                 </List.Root>
@@ -149,7 +170,11 @@ export default function HomePage() {
                     >
                       {item.badge}
                     </Badge>
-                    <Heading as="h3" fontSize={{ base: "xl", md: "2xl" }} lineHeight="1.25">
+                    <Heading
+                      as="h3"
+                      fontSize={{ base: "xl", md: "2xl" }}
+                      lineHeight="1.25"
+                    >
                       {item.title}
                     </Heading>
                     <Text fontSize={{ base: "sm", md: "md" }} color="fg.muted">
@@ -159,7 +184,11 @@ export default function HomePage() {
                 </Card.Header>
                 <Card.Body pt={0}>
                   <Stack gap={5}>
-                    <Text fontSize={{ base: "md", md: "lg" }} lineHeight="1.8" color="fg.muted">
+                    <Text
+                      fontSize={{ base: "md", md: "lg" }}
+                      lineHeight="1.8"
+                      color="fg.muted"
+                    >
                       {item.description}
                     </Text>
                     <Button
