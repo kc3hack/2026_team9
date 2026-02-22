@@ -23,7 +23,7 @@ export default function TermsPage() {
         <Stack gap={6}>
           <Stack gap={2}>
             <Heading size="2xl" lineHeight="1.15">
-              利用規約
+              ネボガード（NeboGuard）利用規約
             </Heading>
             <Text fontSize="sm" color="fg.muted">
               最終更新日: {LAST_UPDATED}
@@ -38,7 +38,7 @@ export default function TermsPage() {
           >
             <Stack gap={4}>
               <Text>
-                本サービス（以下「本サービス」）は、ハッカソンで開発した Google
+                ネボガード（以下「本サービス」）は、ハッカソンで開発した Google
                 カレンダー予定の細分化支援を目的とする試作版です。
               </Text>
               <List.Root gap={2}>

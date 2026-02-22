@@ -14,8 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Task Decomposer",
-  description: "Task decomposition tool for the hackathon project",
+  title: "ネボガード | NeboGuard",
+  description:
+    "ネボガード（NeboGuard）は、予定・移動・天気を統合して朝の判断を支援するアプリです。",
 };
 
 export default function RootLayout({

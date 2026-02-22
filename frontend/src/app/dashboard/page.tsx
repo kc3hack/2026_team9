@@ -627,6 +627,51 @@ export default function DashboardPage() {
     }
     return { targetMs: wakeupTiming.wakeMs };
   }, [wakeupTiming]);
+  const routineTimeline = useMemo(() => {
+    const nowMs = Date.now();
+    if (!wakeupTiming) {
+      return morningRoutine.map((item) => ({
+        ...item,
+        startMs: null as number | null,
+        endMs: null as number | null,
+        status: "upcoming" as const,
+      }));
+    }
+
+    let cursorMs = wakeupTiming.wakeMs;
+    const withTime = morningRoutine.map((item) => {
+      const durationMs = clampMinutes(item.minutes) * 60 * 1000;
+      const startMs = cursorMs;
+      const endMs = cursorMs + durationMs;
+      cursorMs = endMs;
+
+      return {
+        ...item,
+        startMs,
+        endMs,
+        status: "upcoming" as const,
+      };
+    });
+
+    const nextIndex = withTime.findIndex((item) => (item.endMs ?? 0) > nowMs);
+    if (nextIndex === -1) {
+      return withTime.map((item) => ({ ...item, status: "finished" as const }));
+    }
+
+    return withTime.map((item, index) => ({
+      ...item,
+      status:
+        index < nextIndex
+          ? ("finished" as const)
+          : index === nextIndex
+            ? ("next" as const)
+            : ("upcoming" as const),
+    }));
+  }, [morningRoutine, wakeupTiming]);
+  const nextRoutine = useMemo(
+    () => routineTimeline.find((item) => item.status === "next") ?? null,
+    [routineTimeline],
+  );
 
   const startAlarmSound = useCallback(async () => {
     clearAlarmTimeout();
@@ -927,7 +972,7 @@ export default function DashboardPage() {
                       fontSize={{ base: "sm", md: "md" }}
                       letterSpacing="0.08em"
                     >
-                      出発まで
+                      出発時刻
                     </Text>
                     <Text
                       fontSize={{ base: "5xl", md: "7xl" }}
@@ -954,6 +999,7 @@ export default function DashboardPage() {
                         </Text>
                       </Text>
                       <Text>移動 {transitMinutes}分</Text>
+                      <Text>余裕 {Math.max(0, slack)}分</Text>
                     </HStack>
                     <Text
                       color="gray.500"
@@ -966,60 +1012,6 @@ export default function DashboardPage() {
                     </Text>
 
                     <Stack gap={2} mt={2}>
-                      <Text fontSize="xs" color="gray.600">
-                        朝ルーティン（起床から出発まで）合計:{" "}
-                        {routineTotalMinutes}分
-                      </Text>
-                      {routineStatus === "loading" ? (
-                        <Text fontSize="xs" color="gray.500">
-                          朝ルーティンを読み込み中...
-                        </Text>
-                      ) : null}
-
-                      <Stack gap={1}>
-                        {morningRoutine.map((item) => (
-                          <HStack key={item.id} gap={2} align="center">
-                            <Box
-                              w="7px"
-                              h="7px"
-                              borderRadius="full"
-                              bg="gray.400"
-                              flexShrink={0}
-                            />
-                            <Text
-                              fontSize="sm"
-                              color="gray.700"
-                              overflow="hidden"
-                              textOverflow="ellipsis"
-                              whiteSpace="nowrap"
-                            >
-                              {truncateText(item.label, 22)}
-                            </Text>
-                            <Text fontSize="sm" color="gray.500" ml="auto">
-                              {clampMinutes(item.minutes)}分
-                            </Text>
-                          </HStack>
-                        ))}
-                      </Stack>
-
-                      <HStack gap={2} flexWrap="wrap">
-                        <Button
-                          size="xs"
-                          variant="outline"
-                          colorPalette="blue"
-                          onClick={handleOpenRoutineEditor}
-                          disabled={routineStatus === "loading"}
-                        >
-                          ルーティンを編集
-                        </Button>
-                      </HStack>
-
-                      {routineError ? (
-                        <Text fontSize="xs" color="orange.700">
-                          {routineError}
-                        </Text>
-                      ) : null}
-
                       <HStack gap={3} flexWrap="wrap">
                         <Text
                           fontSize={{ base: "sm", md: "md" }}
@@ -1105,6 +1097,146 @@ export default function DashboardPage() {
               <GridItem colSpan={{ base: 1, md: 1, xl: 3 }}>
                 <Card minH={{ base: "160px", md: "210px" }}>
                   <Text fontSize="md" color="gray.500" mb={1}>
+                    朝ルーティン
+                  </Text>
+                  <Text fontSize="xs" color="gray.600">
+                    合計 {routineTotalMinutes}分
+                  </Text>
+                  {routineStatus === "loading" ? (
+                    <Text mt={2} color="gray.500" fontSize="sm">
+                      朝ルーティンを読み込み中...
+                    </Text>
+                  ) : (
+                    <Stack gap={2} mt={2}>
+                      {nextRoutine ? (
+                        <Stack gap={0}>
+                          <Text
+                            fontSize={{ base: "md", md: "lg" }}
+                            fontWeight="semibold"
+                            color="gray.800"
+                            lineHeight={1.3}
+                            overflow="hidden"
+                            textOverflow="ellipsis"
+                            whiteSpace="nowrap"
+                          >
+                            次: {truncateText(nextRoutine.label, 16)}
+                          </Text>
+                          {nextRoutine.startMs !== null &&
+                          nextRoutine.endMs !== null ? (
+                            <Text fontSize="xs" color="gray.500">
+                              {toJstHHmm(
+                                new Date(nextRoutine.startMs).toISOString(),
+                              )}
+                              {" - "}
+                              {toJstHHmm(
+                                new Date(nextRoutine.endMs).toISOString(),
+                              )}
+                            </Text>
+                          ) : null}
+                        </Stack>
+                      ) : (
+                        <Text fontSize="sm" color="gray.500">
+                          次のルーティンはありません
+                        </Text>
+                      )}
+
+                      <Stack gap={1.5}>
+                        {routineTimeline.map((item) => (
+                          <HStack key={item.id} gap={2} align="start">
+                            <Box
+                              mt="6px"
+                              w="6px"
+                              h="6px"
+                              borderRadius="full"
+                              bg={
+                                item.status === "finished"
+                                  ? "gray.300"
+                                  : item.status === "next"
+                                    ? "blue.500"
+                                    : "gray.500"
+                              }
+                              flexShrink={0}
+                            />
+                            <Stack gap={0} minW={0} flex="1">
+                              <Text
+                                fontSize={
+                                  item.status === "next"
+                                    ? { base: "sm", md: "md" }
+                                    : "xs"
+                                }
+                                fontWeight={
+                                  item.status === "next" ? "semibold" : "medium"
+                                }
+                                color={
+                                  item.status === "finished"
+                                    ? "gray.400"
+                                    : item.status === "next"
+                                      ? "gray.800"
+                                      : "gray.600"
+                                }
+                                lineHeight={1.25}
+                                overflow="hidden"
+                                textOverflow="ellipsis"
+                                whiteSpace="nowrap"
+                              >
+                                {truncateText(item.label, 18)}
+                              </Text>
+                              {item.startMs !== null && item.endMs !== null ? (
+                                <Text
+                                  fontSize="xs"
+                                  color={
+                                    item.status === "finished"
+                                      ? "gray.400"
+                                      : "gray.500"
+                                  }
+                                >
+                                  {toJstHHmm(
+                                    new Date(item.startMs).toISOString(),
+                                  )}
+                                  {" - "}
+                                  {toJstHHmm(
+                                    new Date(item.endMs).toISOString(),
+                                  )}
+                                </Text>
+                              ) : null}
+                            </Stack>
+                            <Text
+                              fontSize="xs"
+                              color={
+                                item.status === "finished"
+                                  ? "gray.400"
+                                  : "gray.500"
+                              }
+                            >
+                              {clampMinutes(item.minutes)}分
+                            </Text>
+                          </HStack>
+                        ))}
+                      </Stack>
+
+                      <HStack gap={2} flexWrap="wrap">
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          colorPalette="blue"
+                          onClick={handleOpenRoutineEditor}
+                        >
+                          ルーティンを編集
+                        </Button>
+                      </HStack>
+                    </Stack>
+                  )}
+                  {routineError ? (
+                    <Text fontSize="xs" color="orange.700" mt={2}>
+                      {routineError}
+                    </Text>
+                  ) : null}
+                </Card>
+              </GridItem>
+
+              <GridItem colSpan={{ base: 1, md: 1, xl: 3 }}>
+                <Card minH={{ base: "160px", md: "210px" }}>
+                  <Text fontSize="md" color="gray.500" mb={1}>
                     交通
                   </Text>
                   <Text
@@ -1125,7 +1257,6 @@ export default function DashboardPage() {
                   <Text
                     color="gray.700"
                     fontSize={{ base: "md", md: "lg" }}
-                    fontWeight="semibold"
                     mt={1}
                     overflow="hidden"
                     textOverflow="ellipsis"
@@ -1133,53 +1264,9 @@ export default function DashboardPage() {
                   >
                     {truncateText(transitSummary, 22)}
                   </Text>
-                </Card>
-              </GridItem>
-
-              <GridItem colSpan={{ base: 1, md: 1, xl: 3 }}>
-                <Card minH={{ base: "160px", md: "210px" }}>
-                  <Text fontSize="md" color="gray.500" mb={1}>
-                    余裕
+                  <Text mt={1} color="gray.500" fontSize="sm">
+                    推奨出発 {departure}
                   </Text>
-                  <Text
-                    fontSize={{ base: "3xl", md: "4xl" }}
-                    fontWeight="semibold"
-                    color="gray.800"
-                  >
-                    {Math.max(0, slack)}
-                    <Text
-                      as="span"
-                      fontSize="xl"
-                      color="gray.500"
-                      fontWeight="normal"
-                    >
-                      分
-                    </Text>
-                  </Text>
-                  <Text
-                    color="gray.600"
-                    fontSize={{ base: "md", md: "lg" }}
-                    mt={1}
-                    overflow="hidden"
-                    textOverflow="ellipsis"
-                    whiteSpace="nowrap"
-                  >
-                    {departure}に出れば
-                  </Text>
-                  <Box
-                    mt={3}
-                    h="8px"
-                    bg="gray.200"
-                    borderRadius="full"
-                    overflow="hidden"
-                  >
-                    <Box
-                      h="full"
-                      borderRadius="full"
-                      w={`${Math.min(100, Math.max(0, (Math.max(0, slack) / 60) * 100))}%`}
-                      bg={slack < 5 ? "red.400" : "green.500"}
-                    />
-                  </Box>
                 </Card>
               </GridItem>
 
