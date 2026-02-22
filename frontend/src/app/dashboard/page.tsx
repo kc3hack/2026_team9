@@ -12,6 +12,10 @@ import {
 } from "@chakra-ui/react";
 import { useEffect, useMemo, useState } from "react";
 import { fetchMorningBriefing } from "@/lib/backend-api";
+import {
+  getTaskWorkflowHistory,
+  type WorkflowRecord,
+} from "@/lib/task-workflow-api";
 
 type BriefingEvent = {
   id: string;
@@ -65,6 +69,30 @@ type State = {
   errorType?: "unauthorized" | "unknown";
 };
 
+type DecomposedTaskEvent = {
+  key: string;
+  taskInput: string;
+  summary: string;
+  subtaskTitle: string;
+  startAt: string;
+  endAt: string;
+};
+
+const TODAY_EVENTS_LIMIT = 3;
+const DECOMPOSED_EVENTS_LIMIT = 3;
+
+function truncateText(value: string, maxLength: number): string {
+  if (maxLength <= 0) {
+    return "";
+  }
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  const safe = Math.max(1, Math.trunc(maxLength) - 1);
+  return `${value.slice(0, safe).trimEnd()}…`;
+}
+
 function toJstHHmm(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "--:--";
@@ -81,6 +109,33 @@ function eventDurationMinutes(start: string, end: string): number {
   return Math.max(0, Math.round((e.getTime() - s.getTime()) / 60000));
 }
 
+function collectUpcomingDecomposedEvents(
+  records: WorkflowRecord[],
+  limit: number,
+): DecomposedTaskEvent[] {
+  const now = Date.now();
+  const flattened = records.flatMap((record) =>
+    (record.calendarOutput?.createdEvents ?? []).map((eventItem) => ({
+      key: `${record.workflowId}:${eventItem.id}`,
+      taskInput: record.taskInput,
+      summary: eventItem.summary,
+      subtaskTitle: eventItem.subtaskTitle,
+      startAt: eventItem.startAt,
+      endAt: eventItem.endAt,
+    })),
+  );
+
+  return flattened
+    .filter((eventItem) => {
+      const startAtMs = new Date(eventItem.startAt).getTime();
+      return Number.isFinite(startAtMs) && startAtMs >= now;
+    })
+    .sort(
+      (a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime(),
+    )
+    .slice(0, Math.max(1, Math.trunc(limit)));
+}
+
 export default function DashboardPage() {
   const [state, setState] = useState<State>({
     status: "loading",
@@ -90,28 +145,63 @@ export default function DashboardPage() {
   const [locationInput, setLocationInput] = useState("大阪駅");
   const [currentLocation, setCurrentLocation] = useState("大阪駅");
   const [forceRefresh, setForceRefresh] = useState(false);
+  const [upcomingTaskEvents, setUpcomingTaskEvents] = useState<
+    DecomposedTaskEvent[]
+  >([]);
+  const [taskEventsStatus, setTaskEventsStatus] = useState<
+    "loading" | "ready" | "error"
+  >("loading");
 
   useEffect(() => {
     let active = true;
     setState((prev) => ({ ...prev, status: "loading", errorType: undefined }));
+    setTaskEventsStatus("loading");
 
-    fetchMorningBriefing(currentLocation, 30, forceRefresh)
-      .then((raw) => {
-        if (!active) return;
-        setState({ status: "ready", data: raw as MorningBriefingResult });
-        setForceRefresh(false);
+    Promise.allSettled([
+      fetchMorningBriefing(currentLocation, 30, forceRefresh),
+      getTaskWorkflowHistory(50),
+    ])
+      .then(([briefingResult, workflowResult]) => {
+        if (!active) {
+          return;
+        }
+
+        if (briefingResult.status === "fulfilled") {
+          setState({
+            status: "ready",
+            data: briefingResult.value as MorningBriefingResult,
+          });
+        } else {
+          const message =
+            briefingResult.reason instanceof Error
+              ? briefingResult.reason.message
+              : "";
+          const isUnauthorized =
+            message.includes(" 401 ") || message.includes("401");
+          setState({
+            status: "error",
+            data: null,
+            errorType: isUnauthorized ? "unauthorized" : "unknown",
+          });
+        }
+
+        if (workflowResult.status === "fulfilled") {
+          setUpcomingTaskEvents(
+            collectUpcomingDecomposedEvents(
+              workflowResult.value.items,
+              DECOMPOSED_EVENTS_LIMIT,
+            ),
+          );
+          setTaskEventsStatus("ready");
+        } else {
+          setUpcomingTaskEvents([]);
+          setTaskEventsStatus("error");
+        }
       })
-      .catch((error: unknown) => {
-        if (!active) return;
-        const message = error instanceof Error ? error.message : "";
-        const isUnauthorized =
-          message.includes(" 401 ") || message.includes("401");
-        setState({
-          status: "error",
-          data: null,
-          errorType: isUnauthorized ? "unauthorized" : "unknown",
-        });
-        setForceRefresh(false);
+      .finally(() => {
+        if (active) {
+          setForceRefresh(false);
+        }
       });
 
     return () => {
@@ -309,7 +399,7 @@ export default function DashboardPage() {
                   予定はありません
                 </Text>
               ) : (
-                todayEvents.slice(0, 3).map((event) => (
+                todayEvents.slice(0, TODAY_EVENTS_LIMIT).map((event) => (
                   <HStack key={event.id} align="start" gap={3}>
                     <Box
                       mt="6px"
@@ -319,31 +409,132 @@ export default function DashboardPage() {
                       bg="green.500"
                     />
                     <Stack gap={1}>
+                      <HStack gap={2}>
+                        <Text
+                          px={2}
+                          py={0.5}
+                          borderRadius="md"
+                          bg="gray.100"
+                          color="gray.700"
+                          fontSize="sm"
+                          fontWeight="semibold"
+                          lineHeight={1.2}
+                        >
+                          {toJstHHmm(event.start)}
+                        </Text>
+                        <Text fontSize="sm" color="gray.500">
+                          {eventDurationMinutes(event.start, event.end)}分
+                        </Text>
+                      </HStack>
                       <Text
-                        fontSize={{ base: "2xl", md: "3xl" }}
+                        fontSize={{ base: "lg", md: "xl" }}
                         fontWeight="semibold"
                         color="gray.800"
+                        lineHeight={1.3}
+                        overflow="hidden"
+                        textOverflow="ellipsis"
+                        whiteSpace="nowrap"
                       >
-                        {toJstHHmm(event.start)}
-                        <Text
-                          as="span"
-                          fontSize={{ base: "2xl", md: "3xl" }}
-                          fontWeight="normal"
-                          ml={2}
-                        >
-                          {event.summary}
-                        </Text>
+                        {truncateText(event.summary, 26)}
                       </Text>
                       <Text
-                        fontSize={{ base: "md", md: "lg" }}
+                        fontSize={{ base: "sm", md: "md" }}
                         color="gray.500"
+                        overflow="hidden"
+                        textOverflow="ellipsis"
+                        whiteSpace="nowrap"
                       >
-                        {event.location ?? "場所未設定"} /{" "}
-                        {eventDurationMinutes(event.start, event.end)}分
+                        {truncateText(event.location ?? "場所未設定", 22)}
                       </Text>
                     </Stack>
                   </HStack>
                 ))
+              )}
+            </Stack>
+          </Card>
+
+          <Card minH={{ base: "220px", md: "250px" }}>
+            <Text fontSize="md" color="gray.500" mb={2}>
+              タスク細分化の予定
+            </Text>
+            <Stack gap={3}>
+              {taskEventsStatus === "loading" ? (
+                <Text color="gray.500" fontSize="md">
+                  読み込み中...
+                </Text>
+              ) : upcomingTaskEvents.length === 0 ? (
+                <Text color="gray.500" fontSize="md">
+                  直近の細分化予定はありません
+                </Text>
+              ) : (
+                upcomingTaskEvents.map((eventItem) => (
+                  <HStack key={eventItem.key} align="start" gap={3}>
+                    <Box
+                      mt="6px"
+                      w="10px"
+                      h="10px"
+                      borderRadius="full"
+                      bg="blue.500"
+                    />
+                    <Stack gap={1}>
+                      <HStack gap={2}>
+                        <Text
+                          px={2}
+                          py={0.5}
+                          borderRadius="md"
+                          bg="blue.50"
+                          color="blue.700"
+                          fontSize="sm"
+                          fontWeight="semibold"
+                          lineHeight={1.2}
+                        >
+                          {toJstHHmm(eventItem.startAt)}
+                        </Text>
+                        <Text fontSize="sm" color="gray.500">
+                          {eventDurationMinutes(
+                            eventItem.startAt,
+                            eventItem.endAt,
+                          )}
+                          分
+                        </Text>
+                      </HStack>
+                      <Text
+                        fontSize={{ base: "lg", md: "xl" }}
+                        fontWeight="semibold"
+                        color="gray.800"
+                        lineHeight={1.3}
+                        overflow="hidden"
+                        textOverflow="ellipsis"
+                        whiteSpace="nowrap"
+                      >
+                        {truncateText(eventItem.subtaskTitle, 24)}
+                      </Text>
+                      <Text
+                        fontSize={{ base: "sm", md: "md" }}
+                        color="gray.500"
+                        overflow="hidden"
+                        textOverflow="ellipsis"
+                        whiteSpace="nowrap"
+                      >
+                        {truncateText(eventItem.summary, 36)}
+                      </Text>
+                      <Text
+                        fontSize={{ base: "sm", md: "md" }}
+                        color="gray.500"
+                        overflow="hidden"
+                        textOverflow="ellipsis"
+                        whiteSpace="nowrap"
+                      >
+                        元タスク: {truncateText(eventItem.taskInput, 20)}
+                      </Text>
+                    </Stack>
+                  </HStack>
+                ))
+              )}
+              {taskEventsStatus === "error" && (
+                <Text color="orange.600" fontSize="sm">
+                  細分化予定の取得に失敗しました。
+                </Text>
               )}
             </Stack>
           </Card>
