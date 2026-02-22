@@ -205,6 +205,30 @@ export default function HomePage() {
               </Card.Root>
             ))}
           </Grid>
+
+          <Box as="footer" pt={{ base: 2, md: 4 }}>
+            <HStack
+              justify="center"
+              gap={3}
+              flexWrap="wrap"
+              fontSize={{ base: "sm", md: "md" }}
+              color="fg.muted"
+            >
+              <NextLink
+                href="/terms"
+                style={{ color: "inherit", textDecoration: "underline" }}
+              >
+                利用規約
+              </NextLink>
+              <Text color="gray.400">/</Text>
+              <NextLink
+                href="/privacy"
+                style={{ color: "inherit", textDecoration: "underline" }}
+              >
+                プライバシーポリシー
+              </NextLink>
+            </HStack>
+          </Box>
         </Stack>
       </Container>
     </Box>
