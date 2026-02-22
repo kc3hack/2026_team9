@@ -69,11 +69,13 @@ type StatusCardProps = {
 };
 
 function toStatusCardTone(phase: RunPhase): {
+  symbol: string;
   caption: string;
   dotColor: string;
 } {
   if (phase === "failed") {
     return {
+      symbol: "!",
       caption: "実行エラー",
       dotColor: "red.400",
     };
@@ -81,19 +83,30 @@ function toStatusCardTone(phase: RunPhase): {
 
   if (phase === "completed") {
     return {
+      symbol: "✓",
       caption: "実行完了",
       dotColor: "green.400",
     };
   }
 
-  if (phase === "starting" || phase === "waiting") {
+  if (phase === "starting") {
     return {
+      symbol: "◔",
+      caption: "開始中",
+      dotColor: "teal.400",
+    };
+  }
+
+  if (phase === "waiting") {
+    return {
+      symbol: "◕",
       caption: "実行中",
       dotColor: "teal.400",
     };
   }
 
   return {
+    symbol: "•",
     caption: "待機中",
     dotColor: "gray.400",
   };
@@ -113,9 +126,13 @@ function StatusCard({ phase, statusLabel }: StatusCardProps) {
       w="fit-content"
       maxW="100%"
       title={statusLabel}
+      aria-label={`${tone.caption} (${statusLabel})`}
     >
       <HStack gap={1.5}>
         <Box w={2} h={2} borderRadius="full" bg={tone.dotColor} />
+        <Text fontSize="xs" color="fg.muted">
+          {tone.symbol}
+        </Text>
         <Text fontSize="xs" color="fg.muted">
           {tone.caption}
         </Text>
@@ -461,8 +478,8 @@ export function ResultStep({
             <Stack gap={2}>
               <Text fontWeight="semibold">前提 / メモ</Text>
               <List.Root gap={1}>
-                {breakdown.assumptions.map((item) => (
-                  <List.Item key={item}>{item}</List.Item>
+                {breakdown.assumptions.map((item, index) => (
+                  <List.Item key={`${index}-${item}`}>{item}</List.Item>
                 ))}
               </List.Root>
             </Stack>

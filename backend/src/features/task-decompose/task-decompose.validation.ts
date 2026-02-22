@@ -1,4 +1,4 @@
-import type { TaskDecomposeRequest } from "./task-decompose.types";
+import type { ValidatedTaskDecomposeRequest } from "./task-decompose.types";
 import { normalizeTaskTimezone } from "./task-timezone";
 
 const MAX_STEPS_LIMIT = 12;
@@ -42,7 +42,9 @@ function parseMaxSteps(value: unknown): number | undefined {
   return Math.min(rounded, MAX_STEPS_LIMIT);
 }
 
-export function toRequestPayload(input: unknown): TaskDecomposeRequest | null {
+export function toRequestPayload(
+  input: unknown,
+): ValidatedTaskDecomposeRequest | null {
   if (!input || typeof input !== "object") {
     return null;
   }

@@ -7,6 +7,13 @@ export type TaskDecomposeRequest = {
   maxSteps?: number;
 };
 
+export type ValidatedTaskDecomposeRequest = Omit<
+  TaskDecomposeRequest,
+  "timezone"
+> & {
+  timezone: string;
+};
+
 export type TaskSubtask = {
   title: string;
   description: string;
