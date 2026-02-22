@@ -104,7 +104,8 @@ export default function DashboardPage() {
       .catch((error: unknown) => {
         if (!active) return;
         const message = error instanceof Error ? error.message : "";
-        const isUnauthorized = message.includes(" 401 ") || message.includes("401");
+        const isUnauthorized =
+          message.includes(" 401 ") || message.includes("401");
         setState({
           status: "error",
           data: null,
