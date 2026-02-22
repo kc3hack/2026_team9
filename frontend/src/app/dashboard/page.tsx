@@ -84,7 +84,6 @@ export default function DashboardPage() {
   const [state, setState] = useState<State>({ status: "loading", data: null });
   const [locationInput, setLocationInput] = useState("大阪駅");
   const [currentLocation, setCurrentLocation] = useState("大阪駅");
-  const [refreshToken, setRefreshToken] = useState(0);
   const [forceRefresh, setForceRefresh] = useState(false);
 
   useEffect(() => {
@@ -106,7 +105,7 @@ export default function DashboardPage() {
     return () => {
       active = false;
     };
-  }, [currentLocation, refreshToken, forceRefresh]);
+  }, [currentLocation, forceRefresh]);
 
   const urgent = state.data?.urgent ?? null;
   const departure = urgent?.leaveBy ?? "--:--";
@@ -138,7 +137,6 @@ export default function DashboardPage() {
     setLocationInput(next);
     setCurrentLocation(next);
     setForceRefresh(true);
-    setRefreshToken((v) => v + 1);
   };
 
   return (
