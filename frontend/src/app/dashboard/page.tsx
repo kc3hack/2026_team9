@@ -11,6 +11,7 @@ import {
   Stack,
   Text,
 } from "@chakra-ui/react";
+import NextLink from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { fetchMorningBriefing } from "@/lib/backend-api";
 import {
@@ -261,6 +262,15 @@ export default function DashboardPage() {
       >
         <Box w="full" maxW="1600px" mx="auto">
           <Stack gap={{ base: 4, md: 5 }}>
+            <HStack gap={2} flexWrap="wrap">
+              <Button asChild size="xs" variant="outline">
+                <NextLink href="/">トップへ</NextLink>
+              </Button>
+              <Button asChild size="xs" variant="outline">
+                <NextLink href="/task-decomp">タスク細分化へ</NextLink>
+              </Button>
+            </HStack>
+
             <Card>
               <HStack
                 justify="center"
