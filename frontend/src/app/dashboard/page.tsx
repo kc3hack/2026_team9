@@ -12,7 +12,7 @@ import {
   Text,
 } from "@chakra-ui/react";
 import NextLink from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchMorningBriefing } from "@/lib/backend-api";
 import {
   getTaskWorkflowHistory,
@@ -80,8 +80,22 @@ type DecomposedTaskEvent = {
   endAt: string;
 };
 
+type AlarmStatus = "idle" | "scheduled" | "ringing";
+type MorningRoutineItem = {
+  id: string;
+  label: string;
+  minutes: number;
+};
+
 const TODAY_EVENTS_LIMIT = 3;
 const DECOMPOSED_EVENTS_LIMIT = 3;
+const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
+const WAKEUP_ALARM_ENABLED_KEY = "dashboard:wakeup-alarm-enabled";
+const MORNING_ROUTINE_STORAGE_KEY = "dashboard:morning-routine:v1";
+const DEFAULT_MORNING_ROUTINE: MorningRoutineItem[] = [
+  { id: "prepare", label: "身支度", minutes: 20 },
+  { id: "breakfast", label: "朝食", minutes: 15 },
+];
 
 function truncateText(value: string, maxLength: number): string {
   if (maxLength <= 0) {
@@ -98,7 +112,7 @@ function truncateText(value: string, maxLength: number): string {
 function toJstHHmm(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "--:--";
-  const jst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+  const jst = new Date(d.getTime() + JST_OFFSET_MS);
   const h = jst.getUTCHours().toString().padStart(2, "0");
   const m = jst.getUTCMinutes().toString().padStart(2, "0");
   return `${h}:${m}`;
@@ -138,6 +152,124 @@ function collectUpcomingDecomposedEvents(
     .slice(0, Math.max(1, Math.trunc(limit)));
 }
 
+function createRoutineItemId(): string {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function clampMinutes(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.min(180, Math.max(0, Math.trunc(value)));
+}
+
+function normalizeRoutineItems(value: unknown): MorningRoutineItem[] | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const normalized = value
+    .map((item) => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+
+      const candidate = item as {
+        id?: unknown;
+        label?: unknown;
+        minutes?: unknown;
+      };
+      const label =
+        typeof candidate.label === "string" && candidate.label.trim().length > 0
+          ? candidate.label.trim()
+          : null;
+      if (!label) {
+        return null;
+      }
+
+      const minutes =
+        typeof candidate.minutes === "number"
+          ? clampMinutes(candidate.minutes)
+          : 0;
+      const id =
+        typeof candidate.id === "string" && candidate.id.trim().length > 0
+          ? candidate.id
+          : createRoutineItemId();
+
+      return { id, label, minutes } satisfies MorningRoutineItem;
+    })
+    .filter((item): item is MorningRoutineItem => item !== null);
+
+  if (normalized.length === 0) {
+    return null;
+  }
+
+  return normalized;
+}
+
+function inferTransferCount(summary: string | null | undefined): number | null {
+  if (!summary || summary.trim().length === 0) {
+    return null;
+  }
+
+  const patterns = [
+    /乗り換え\s*(\d+)\s*回/u,
+    /乗換(?:え)?\s*(\d+)\s*回/u,
+    /(\d+)\s*回乗換/u,
+  ];
+
+  for (const pattern of patterns) {
+    const matched = pattern.exec(summary);
+    if (!matched?.[1]) {
+      continue;
+    }
+
+    const count = Number(matched[1]);
+    if (Number.isFinite(count)) {
+      return count;
+    }
+  }
+
+  return null;
+}
+
+function buildWakeupSpeech(
+  urgent: EventBriefing | null,
+  weather: WeatherInfo | null,
+): string {
+  if (!urgent) {
+    return "本日の予定はまだ取得できていません。";
+  }
+
+  const startAt = toJstHHmm(urgent.event.start);
+  const destination =
+    urgent.destination?.trim() ||
+    urgent.event.location?.trim() ||
+    "目的地未設定";
+  const transferCount = inferTransferCount(urgent.route?.summary ?? null);
+  const transferText =
+    transferCount !== null
+      ? `乗り換え${transferCount}回`
+      : urgent.route?.summary?.trim()
+        ? urgent.route.summary
+        : "乗り換え情報なし";
+  const transitText =
+    urgent.transitMinutes > 0
+      ? `${urgent.transitMinutes}分`
+      : "移動時間は未取得";
+  const umbrellaText = weather?.umbrellaNeeded
+    ? "雨のため傘を持ってください。"
+    : "傘は不要です。";
+
+  return `今日は${startAt}から${destination}。${transferText}、${transitText}。${urgent.leaveBy}出発推奨。${umbrellaText}`;
+}
+
 export default function DashboardPage() {
   const [state, setState] = useState<State>({
     status: "loading",
@@ -153,6 +285,17 @@ export default function DashboardPage() {
   const [taskEventsStatus, setTaskEventsStatus] = useState<
     "loading" | "ready" | "error"
   >("loading");
+  const [alarmEnabled, setAlarmEnabled] = useState(false);
+  const [alarmStatus, setAlarmStatus] = useState<AlarmStatus>("idle");
+  const [alarmTargetMs, setAlarmTargetMs] = useState<number | null>(null);
+  const [alarmMessage, setAlarmMessage] = useState<string | null>(null);
+  const [lastGuidanceText, setLastGuidanceText] = useState<string | null>(null);
+  const [morningRoutine, setMorningRoutine] = useState<MorningRoutineItem[]>(
+    DEFAULT_MORNING_ROUTINE,
+  );
+  const alarmTimeoutRef = useRef<number | null>(null);
+  const alarmIntervalRef = useRef<number | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -211,13 +354,369 @@ export default function DashboardPage() {
     };
   }, [currentLocation, forceRefresh]);
 
+  const clearAlarmTimeout = useCallback(() => {
+    if (alarmTimeoutRef.current !== null) {
+      window.clearTimeout(alarmTimeoutRef.current);
+      alarmTimeoutRef.current = null;
+    }
+  }, []);
+
+  const stopAlarmSound = useCallback(() => {
+    if (alarmIntervalRef.current !== null) {
+      window.clearInterval(alarmIntervalRef.current);
+      alarmIntervalRef.current = null;
+    }
+
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      navigator.vibrate(0);
+    }
+  }, []);
+
+  const ensureAudioContext =
+    useCallback(async (): Promise<AudioContext | null> => {
+      if (typeof window === "undefined") {
+        return null;
+      }
+
+      const w = window as Window & { webkitAudioContext?: typeof AudioContext };
+      const AudioContextCtor = w.AudioContext ?? w.webkitAudioContext;
+      if (!AudioContextCtor) {
+        return null;
+      }
+
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContextCtor();
+      }
+
+      if (audioContextRef.current.state === "suspended") {
+        await audioContextRef.current.resume().catch(() => undefined);
+      }
+
+      if (audioContextRef.current.state !== "running") {
+        return null;
+      }
+
+      return audioContextRef.current;
+    }, []);
+
+  const playAlarmTone = useCallback(async (): Promise<boolean> => {
+    const context = await ensureAudioContext();
+    if (!context) {
+      return false;
+    }
+
+    const now = context.currentTime;
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+
+    oscillator.type = "square";
+    oscillator.frequency.setValueAtTime(880, now);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.42, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.24);
+
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start(now);
+    oscillator.stop(now + 0.26);
+
+    return true;
+  }, [ensureAudioContext]);
+
+  const speakBriefing = useCallback((text: string): boolean => {
+    if (
+      typeof window === "undefined" ||
+      !("speechSynthesis" in window) ||
+      typeof SpeechSynthesisUtterance === "undefined"
+    ) {
+      return false;
+    }
+
+    const synth = window.speechSynthesis;
+    synth.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "ja-JP";
+    utterance.rate = 1;
+    utterance.pitch = 1;
+
+    const jaVoice = synth
+      .getVoices()
+      .find((voice) => voice.lang.toLowerCase().startsWith("ja"));
+    if (jaVoice) {
+      utterance.voice = jaVoice;
+    }
+
+    synth.speak(utterance);
+    return true;
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const saved = window.localStorage.getItem(WAKEUP_ALARM_ENABLED_KEY);
+    if (saved === "1") {
+      setAlarmEnabled(true);
+    }
+
+    const routineRaw = window.localStorage.getItem(MORNING_ROUTINE_STORAGE_KEY);
+    if (!routineRaw) {
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(routineRaw) as unknown;
+      const normalized = normalizeRoutineItems(parsed);
+      if (normalized) {
+        setMorningRoutine(normalized);
+      }
+    } catch {
+      // Ignore broken storage payloads and fall back to defaults.
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    window.localStorage.setItem(
+      WAKEUP_ALARM_ENABLED_KEY,
+      alarmEnabled ? "1" : "0",
+    );
+  }, [alarmEnabled]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    window.localStorage.setItem(
+      MORNING_ROUTINE_STORAGE_KEY,
+      JSON.stringify(morningRoutine),
+    );
+  }, [morningRoutine]);
+
+  useEffect(() => {
+    return () => {
+      clearAlarmTimeout();
+      stopAlarmSound();
+
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+
+      const ctx = audioContextRef.current;
+      audioContextRef.current = null;
+      if (ctx) {
+        void ctx.close().catch(() => undefined);
+      }
+    };
+  }, [clearAlarmTimeout, stopAlarmSound]);
+
   const urgent = state.data?.urgent ?? null;
   const departure = urgent?.leaveBy ?? "--:--";
+  const routineTotalMinutes = useMemo(() => {
+    const total = morningRoutine.reduce(
+      (sum, item) => sum + clampMinutes(item.minutes),
+      0,
+    );
+    return Math.max(1, Math.min(300, total));
+  }, [morningRoutine]);
   const lateRisk = urgent?.lateRiskPercent ?? 0;
   const slack = urgent?.slackMinutes ?? 0;
   const transitSummary = urgent?.route?.summary ?? "経路情報なし";
   const transitMinutes = urgent?.transitMinutes ?? 0;
   const weather = state.data?.weather ?? null;
+  const wakeupTiming = useMemo(() => {
+    if (!urgent) {
+      return null;
+    }
+
+    const eventStartMs = new Date(urgent.event.start).getTime();
+    if (!Number.isFinite(eventStartMs)) {
+      return null;
+    }
+
+    const safeTransitMinutes = Math.max(0, Math.trunc(urgent.transitMinutes));
+    const leaveMs = eventStartMs - safeTransitMinutes * 60 * 1000;
+    const wakeMs = leaveMs - routineTotalMinutes * 60 * 1000;
+    if (!Number.isFinite(wakeMs)) {
+      return null;
+    }
+
+    return {
+      leaveMs,
+      wakeMs,
+      wakeLabel: toJstHHmm(new Date(wakeMs).toISOString()),
+    };
+  }, [routineTotalMinutes, urgent]);
+  const wakeUpTime = wakeupTiming?.wakeLabel ?? urgent?.wakeUpBy ?? "--:--";
+  const wakeupAlarmPlan = useMemo(() => {
+    if (!wakeupTiming) {
+      return null;
+    }
+    return { targetMs: wakeupTiming.wakeMs };
+  }, [wakeupTiming]);
+
+  const startAlarmSound = useCallback(async () => {
+    clearAlarmTimeout();
+    stopAlarmSound();
+    setAlarmStatus("ringing");
+    setAlarmMessage(null);
+
+    const firstTonePlayed = await playAlarmTone();
+    if (!firstTonePlayed) {
+      setAlarmMessage(
+        "アラーム音を再生できません。ブラウザで音声再生を許可してください。",
+      );
+    } else {
+      alarmIntervalRef.current = window.setInterval(() => {
+        void playAlarmTone();
+      }, 900);
+    }
+
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      navigator.vibrate([260, 120, 260, 120, 480]);
+    }
+
+    if ("Notification" in window && Notification.permission === "granted") {
+      try {
+        new Notification("起床アラーム", {
+          body: `${wakeUpTime} です。起きる時間です。`,
+        });
+      } catch {
+        // Ignore notification failures.
+      }
+    }
+  }, [clearAlarmTimeout, playAlarmTone, stopAlarmSound, wakeUpTime]);
+
+  const handleEnableAlarm = useCallback(async () => {
+    setAlarmMessage(null);
+    const context = await ensureAudioContext();
+    if (!context) {
+      setAlarmMessage(
+        "このブラウザではアラーム音を有効化できません。別ブラウザをお試しください。",
+      );
+      return;
+    }
+
+    if ("Notification" in window && Notification.permission === "default") {
+      void Notification.requestPermission().catch(() => undefined);
+    }
+
+    setAlarmEnabled(true);
+  }, [ensureAudioContext]);
+
+  const handleDisableAlarm = useCallback(() => {
+    setAlarmEnabled(false);
+    setAlarmStatus("idle");
+    setAlarmTargetMs(null);
+    clearAlarmTimeout();
+    stopAlarmSound();
+  }, [clearAlarmTimeout, stopAlarmSound]);
+
+  const handleTestAlarm = useCallback(() => {
+    void startAlarmSound();
+  }, [startAlarmSound]);
+
+  const handleStopAlarmAndSpeak = useCallback(() => {
+    stopAlarmSound();
+    setAlarmStatus("idle");
+
+    const guidance = buildWakeupSpeech(urgent, weather);
+    setLastGuidanceText(guidance);
+    const spoken = speakBriefing(guidance);
+    if (!spoken) {
+      setAlarmMessage(
+        "読み上げに対応していないブラウザです。案内文のみ表示します。",
+      );
+    }
+  }, [speakBriefing, stopAlarmSound, urgent, weather]);
+
+  const handleRoutineLabelChange = useCallback((id: string, value: string) => {
+    setMorningRoutine((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, label: value } : item)),
+    );
+  }, []);
+
+  const handleRoutineMinutesChange = useCallback(
+    (id: string, value: string) => {
+      const parsed = Number(value);
+      const minutes = Number.isFinite(parsed) ? clampMinutes(parsed) : 0;
+      setMorningRoutine((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, minutes } : item)),
+      );
+    },
+    [],
+  );
+
+  const handleAddRoutineItem = useCallback(() => {
+    setMorningRoutine((prev) => [
+      ...prev,
+      {
+        id: createRoutineItemId(),
+        label: "追加ルーティン",
+        minutes: 10,
+      },
+    ]);
+  }, []);
+
+  const handleRemoveRoutineItem = useCallback((id: string) => {
+    setMorningRoutine((prev) => {
+      if (prev.length <= 1) {
+        return prev;
+      }
+      return prev.filter((item) => item.id !== id);
+    });
+  }, []);
+
+  useEffect(() => {
+    clearAlarmTimeout();
+
+    if (!alarmEnabled || !wakeupAlarmPlan) {
+      setAlarmTargetMs(null);
+      setAlarmStatus((prev) => (prev === "ringing" ? prev : "idle"));
+      return;
+    }
+
+    setAlarmTargetMs(wakeupAlarmPlan.targetMs);
+    const delayMs = wakeupAlarmPlan.targetMs - Date.now();
+
+    if (delayMs <= 0) {
+      setAlarmStatus((prev) => (prev === "ringing" ? prev : "idle"));
+      return;
+    }
+
+    setAlarmStatus((prev) => (prev === "ringing" ? prev : "scheduled"));
+    alarmTimeoutRef.current = window.setTimeout(() => {
+      void startAlarmSound();
+    }, delayMs);
+
+    return () => {
+      clearAlarmTimeout();
+    };
+  }, [alarmEnabled, clearAlarmTimeout, startAlarmSound, wakeupAlarmPlan]);
+
+  const alarmStatusLabel = useMemo(() => {
+    if (!alarmEnabled) {
+      return "OFF";
+    }
+    if (!wakeupAlarmPlan) {
+      return "予定なし";
+    }
+    if (alarmStatus === "ringing") {
+      return "鳴動中";
+    }
+    if (alarmStatus === "scheduled") {
+      const scheduledTime =
+        alarmTargetMs !== null
+          ? toJstHHmm(new Date(alarmTargetMs).toISOString())
+          : wakeUpTime;
+      return `${scheduledTime} に鳴動予定`;
+    }
+    return "待機中";
+  }, [alarmEnabled, alarmStatus, alarmTargetMs, wakeUpTime, wakeupAlarmPlan]);
 
   const todayEvents = useMemo(() => {
     const byId = new Map<string, BriefingEvent>();
@@ -361,6 +860,155 @@ export default function DashboardPage() {
                     >
                       経路: {truncateText(transitSummary, 52)}
                     </Text>
+
+                    <Stack gap={2} mt={2}>
+                      <Text fontSize="xs" color="gray.600">
+                        朝ルーティン（起床から出発まで）合計:{" "}
+                        {routineTotalMinutes}分
+                      </Text>
+
+                      <Stack gap={2}>
+                        {morningRoutine.map((item) => (
+                          <HStack
+                            key={item.id}
+                            gap={2}
+                            align="center"
+                            flexWrap={{ base: "wrap", sm: "nowrap" }}
+                          >
+                            <Input
+                              size="xs"
+                              value={item.label}
+                              onChange={(e) =>
+                                handleRoutineLabelChange(
+                                  item.id,
+                                  e.target.value,
+                                )
+                              }
+                              bg="white"
+                              minW={{ base: "100%", sm: "180px" }}
+                              maxW={{ base: "100%", sm: "220px" }}
+                            />
+                            <Input
+                              size="xs"
+                              type="number"
+                              min={0}
+                              max={180}
+                              step={1}
+                              value={item.minutes.toString()}
+                              onChange={(e) =>
+                                handleRoutineMinutesChange(
+                                  item.id,
+                                  e.target.value,
+                                )
+                              }
+                              w={{ base: "92px", sm: "84px" }}
+                              bg="white"
+                            />
+                            <Text fontSize="xs" color="gray.600">
+                              分
+                            </Text>
+                            <Button
+                              size="xs"
+                              variant="outline"
+                              colorPalette="gray"
+                              onClick={() => handleRemoveRoutineItem(item.id)}
+                              disabled={morningRoutine.length <= 1}
+                            >
+                              削除
+                            </Button>
+                          </HStack>
+                        ))}
+                      </Stack>
+
+                      <HStack gap={2} flexWrap="wrap">
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          colorPalette="blue"
+                          onClick={handleAddRoutineItem}
+                        >
+                          ルーティン項目を追加
+                        </Button>
+                      </HStack>
+
+                      <HStack gap={3} flexWrap="wrap">
+                        <Text
+                          fontSize={{ base: "sm", md: "md" }}
+                          color="gray.700"
+                        >
+                          起床目安 {wakeUpTime}
+                        </Text>
+                        <Text
+                          fontSize={{ base: "sm", md: "md" }}
+                          color="gray.700"
+                        >
+                          アラーム {alarmStatusLabel}
+                        </Text>
+                      </HStack>
+
+                      <HStack gap={2} flexWrap="wrap">
+                        {alarmEnabled ? (
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            colorPalette="gray"
+                            onClick={handleDisableAlarm}
+                          >
+                            アラーム無効化
+                          </Button>
+                        ) : (
+                          <Button
+                            size="xs"
+                            colorPalette="teal"
+                            onClick={() => void handleEnableAlarm()}
+                          >
+                            アラーム有効化
+                          </Button>
+                        )}
+
+                        {alarmStatus === "ringing" ? (
+                          <Button
+                            size="xs"
+                            colorPalette="red"
+                            onClick={handleStopAlarmAndSpeak}
+                          >
+                            停止して案内を再生
+                          </Button>
+                        ) : (
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            colorPalette="teal"
+                            onClick={handleTestAlarm}
+                          >
+                            アラームテスト
+                          </Button>
+                        )}
+                      </HStack>
+
+                      {alarmMessage ? (
+                        <Text fontSize="xs" color="orange.700">
+                          {alarmMessage}
+                        </Text>
+                      ) : null}
+
+                      {alarmEnabled && alarmTargetMs ? (
+                        <Text fontSize="xs" color="gray.600">
+                          次回鳴動予定:{" "}
+                          {toJstHHmm(new Date(alarmTargetMs).toISOString())}
+                        </Text>
+                      ) : null}
+
+                      {lastGuidanceText ? (
+                        <Text fontSize="xs" color="gray.600" noOfLines={2}>
+                          案内: {lastGuidanceText}
+                        </Text>
+                      ) : null}
+
+                      <Text fontSize="xs" color="gray.500">
+                        ※ アラームはこの画面を開いている間に動作します。
+                      </Text>
+                    </Stack>
                   </Stack>
                 </Card>
               </GridItem>
