@@ -62,6 +62,7 @@ type MorningBriefingResult = {
 type State = {
   status: "loading" | "ready" | "error";
   data: MorningBriefingResult | null;
+  errorType?: "unauthorized" | "unknown";
 };
 
 function toJstHHmm(iso: string): string {
@@ -81,14 +82,18 @@ function eventDurationMinutes(start: string, end: string): number {
 }
 
 export default function DashboardPage() {
-  const [state, setState] = useState<State>({ status: "loading", data: null });
+  const [state, setState] = useState<State>({
+    status: "loading",
+    data: null,
+    errorType: undefined,
+  });
   const [locationInput, setLocationInput] = useState("大阪駅");
   const [currentLocation, setCurrentLocation] = useState("大阪駅");
   const [forceRefresh, setForceRefresh] = useState(false);
 
   useEffect(() => {
     let active = true;
-    setState((prev) => ({ ...prev, status: "loading" }));
+    setState((prev) => ({ ...prev, status: "loading", errorType: undefined }));
 
     fetchMorningBriefing(currentLocation, 30, forceRefresh)
       .then((raw) => {
@@ -96,9 +101,15 @@ export default function DashboardPage() {
         setState({ status: "ready", data: raw as MorningBriefingResult });
         setForceRefresh(false);
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (!active) return;
-        setState({ status: "error", data: null });
+        const message = error instanceof Error ? error.message : "";
+        const isUnauthorized = message.includes(" 401 ") || message.includes("401");
+        setState({
+          status: "error",
+          data: null,
+          errorType: isUnauthorized ? "unauthorized" : "unknown",
+        });
         setForceRefresh(false);
       });
 
@@ -380,9 +391,24 @@ export default function DashboardPage() {
           </Card>
 
           {state.status === "error" && (
-            <Text color="red.600" textAlign="center" fontSize="md">
-              API取得に失敗しました。ログイン状態とバックエンド起動を確認してください。
-            </Text>
+            <Stack align="center" gap={2}>
+              <Text color="red.600" textAlign="center" fontSize="md">
+                {state.errorType === "unauthorized"
+                  ? "ログインが必要です。"
+                  : "API取得に失敗しました。ログイン状態とバックエンド起動を確認してください。"}
+              </Text>
+              {state.errorType === "unauthorized" && (
+                <Button
+                  size="sm"
+                  colorPalette="blue"
+                  onClick={() => {
+                    window.location.assign("/");
+                  }}
+                >
+                  ログイン画面へ
+                </Button>
+              )}
+            </Stack>
           )}
         </Stack>
       </Container>
