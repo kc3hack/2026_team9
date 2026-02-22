@@ -2,8 +2,11 @@ import type { Context } from "hono";
 import { Hono } from "hono";
 import { getAllowedOrigins, isAllowedOrigin } from "./lib/origins";
 import { registerAuthRoutes } from "./routes/auth-routes";
+import { registerBriefingRoutes } from "./routes/briefing-routes";
+import { registerCalendarRoutes } from "./routes/calendar-routes";
 import { registerRootRoutes } from "./routes/root-routes";
 import { registerTaskRoutes } from "./routes/task-routes";
+import { registerTransitRoutes } from "./routes/transit-routes";
 import { registerWorkflowRoutes } from "./routes/workflow-routes";
 import type { App } from "./types/app";
 
@@ -49,7 +52,10 @@ export function createApp(): App {
 
   registerRootRoutes(app);
   registerAuthRoutes(app);
+  registerBriefingRoutes(app);
+  registerCalendarRoutes(app);
   registerTaskRoutes(app);
+  registerTransitRoutes(app);
   registerWorkflowRoutes(app);
 
   return app;

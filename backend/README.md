@@ -5,7 +5,7 @@
 
 ## 技術スタック
 
-- Hono
+- Honogit pull
 - Cloudflare Workers
 - Cloudflare Workflows
 - Workers AI
