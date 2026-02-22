@@ -215,14 +215,14 @@ export default function HomePage() {
               color="fg.muted"
             >
               <NextLink
-                href="/terms"
+                href="https://kc3hack2026-9.yaken.org/terms"
                 style={{ color: "inherit", textDecoration: "underline" }}
               >
                 利用規約
               </NextLink>
               <Text color="gray.400">/</Text>
               <NextLink
-                href="/privacy"
+                href="https://kc3hack2026-9.yaken.org/privacy"
                 style={{ color: "inherit", textDecoration: "underline" }}
               >
                 プライバシーポリシー
