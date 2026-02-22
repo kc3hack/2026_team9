@@ -5,6 +5,7 @@ import {
   Button,
   Container,
   Grid,
+  GridItem,
   HStack,
   Input,
   Stack,
@@ -242,367 +243,443 @@ export default function DashboardPage() {
   };
 
   return (
-    <Box minH="100dvh" bg="#eeece8" py={{ base: 8, md: 12 }}>
-      <Container maxW="2xl">
-        <Stack gap={5}>
-          <HStack
-            justify="center"
-            gap={2}
-            bg="white"
-            borderWidth="1px"
-            borderColor="gray.200"
-            borderRadius="xl"
-            p={2}
-          >
-            <Input
-              value={locationInput}
-              onChange={(e) => setLocationInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  applyLocation();
-                }
-              }}
-              flex="1"
-              minW={{ base: "140px", md: "240px" }}
-              bg="white"
-              borderColor="gray.300"
-              size="md"
-              placeholder="現在地（例: 大阪駅）"
-            />
-            <Button
-              size="md"
-              minW="84px"
-              colorPalette="gray"
-              onClick={applyLocation}
-            >
-              更新
-            </Button>
-          </HStack>
+    <Box
+      minH="100dvh"
+      bg="var(--app-bg)"
+      py={{ base: 5, md: 8 }}
+      position="relative"
+      overflow="hidden"
+    >
+      <Box className="app-orb app-orb--one" aria-hidden="true" />
+      <Box className="app-orb app-orb--two" aria-hidden="true" />
 
-          <Stack gap={1} textAlign="center" pt={1}>
-            <Text
-              color="gray.700"
-              fontSize={{ base: "md", md: "lg" }}
-              letterSpacing="0.08em"
-            >
-              出発まで
-            </Text>
-            <Text
-              fontSize={{ base: "5xl", md: "7xl" }}
-              fontWeight="bold"
-              color="gray.800"
-              lineHeight={1}
-            >
-              {departure}
-            </Text>
-            <Text color="gray.600" fontSize={{ base: "lg", md: "xl" }}>
-              遅刻リスク{" "}
-              <Text
-                as="span"
-                color={lateRisk >= 60 ? "red.600" : "green.700"}
-                fontWeight="semibold"
+      <Container
+        maxW="full"
+        px={{ base: 4, md: 6, xl: 10 }}
+        position="relative"
+        zIndex={1}
+      >
+        <Box w="full" maxW="1600px" mx="auto">
+          <Stack gap={{ base: 4, md: 5 }}>
+            <Card>
+              <HStack
+                justify="center"
+                gap={2}
+                flexWrap={{ base: "wrap", sm: "nowrap" }}
+                align="stretch"
               >
-                {lateRisk}%
-              </Text>
-            </Text>
-            <Text color="gray.500" fontSize="xs">
-              現在地: {currentLocation}
-            </Text>
-          </Stack>
-
-          <Grid
-            templateColumns={{ base: "1fr", md: "1fr 1fr" }}
-            gap={4}
-            alignItems="stretch"
-          >
-            <Card minH={{ base: "160px", md: "180px" }}>
-              <Text fontSize="md" color="gray.500" mb={1}>
-                交通
-              </Text>
-              <Text
-                fontSize={{ base: "3xl", md: "4xl" }}
-                fontWeight="semibold"
-                color="gray.800"
-              >
-                {transitMinutes}
-                <Text
-                  as="span"
-                  fontSize="xl"
-                  color="gray.500"
-                  fontWeight="normal"
-                >
-                  分
-                </Text>
-              </Text>
-              <Text
-                color="gray.700"
-                fontSize={{ base: "lg", md: "xl" }}
-                fontWeight="semibold"
-                mt={1}
-                overflow="hidden"
-                textOverflow="ellipsis"
-                whiteSpace="nowrap"
-              >
-                {transitSummary}
-              </Text>
-              <Text mt={1} color="green.600" fontSize="md">
-                定刻通り
-              </Text>
-            </Card>
-
-            <Card minH={{ base: "160px", md: "180px" }}>
-              <Text fontSize="md" color="gray.500" mb={1}>
-                余裕
-              </Text>
-              <Text
-                fontSize={{ base: "3xl", md: "4xl" }}
-                fontWeight="semibold"
-                color="gray.800"
-              >
-                {Math.max(0, slack)}
-                <Text
-                  as="span"
-                  fontSize="xl"
-                  color="gray.500"
-                  fontWeight="normal"
-                >
-                  分
-                </Text>
-              </Text>
-              <Text color="gray.600" fontSize={{ base: "md", md: "lg" }} mt={1}>
-                {departure}に出れば
-              </Text>
-              <Box
-                mt={3}
-                h="8px"
-                bg="gray.200"
-                borderRadius="full"
-                overflow="hidden"
-              >
-                <Box
-                  h="full"
-                  borderRadius="full"
-                  w={`${Math.min(100, Math.max(0, (Math.max(0, slack) / 60) * 100))}%`}
-                  bg={slack < 5 ? "red.400" : "green.500"}
+                <Input
+                  value={locationInput}
+                  onChange={(e) => setLocationInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      applyLocation();
+                    }
+                  }}
+                  flex="1"
+                  minW={{ base: "0", sm: "220px" }}
+                  bg="white"
+                  borderColor="gray.300"
+                  size="md"
+                  placeholder="現在地（例: 大阪駅）"
                 />
-              </Box>
+                <Button
+                  size="md"
+                  minW={{ base: "100%", sm: "84px" }}
+                  colorPalette="gray"
+                  onClick={applyLocation}
+                >
+                  更新
+                </Button>
+              </HStack>
+              <Text color="gray.500" fontSize="xs" mt={2}>
+                現在地: {currentLocation}
+              </Text>
             </Card>
-          </Grid>
 
-          <Card minH={{ base: "220px", md: "250px" }}>
-            <Text fontSize="md" color="gray.500" mb={2}>
-              今日の予定
-            </Text>
-            <Stack gap={3}>
-              {todayEvents.length === 0 ? (
-                <Text color="gray.500" fontSize="md">
-                  予定はありません
-                </Text>
-              ) : (
-                todayEvents.slice(0, TODAY_EVENTS_LIMIT).map((event) => (
-                  <HStack key={event.id} align="start" gap={3}>
-                    <Box
-                      mt="6px"
-                      w="10px"
-                      h="10px"
-                      borderRadius="full"
-                      bg="green.500"
-                    />
-                    <Stack gap={1}>
-                      <HStack gap={2}>
-                        <Text
-                          px={2}
-                          py={0.5}
-                          borderRadius="md"
-                          bg="gray.100"
-                          color="gray.700"
-                          fontSize="sm"
-                          fontWeight="semibold"
-                          lineHeight={1.2}
-                        >
-                          {toJstHHmm(event.start)}
-                        </Text>
-                        <Text fontSize="sm" color="gray.500">
-                          {eventDurationMinutes(event.start, event.end)}分
-                        </Text>
-                      </HStack>
-                      <Text
-                        fontSize={{ base: "lg", md: "xl" }}
-                        fontWeight="semibold"
-                        color="gray.800"
-                        lineHeight={1.3}
-                        overflow="hidden"
-                        textOverflow="ellipsis"
-                        whiteSpace="nowrap"
-                      >
-                        {truncateText(event.summary, 26)}
-                      </Text>
-                      <Text
-                        fontSize={{ base: "sm", md: "md" }}
-                        color="gray.500"
-                        overflow="hidden"
-                        textOverflow="ellipsis"
-                        whiteSpace="nowrap"
-                      >
-                        {truncateText(event.location ?? "場所未設定", 22)}
-                      </Text>
-                    </Stack>
-                  </HStack>
-                ))
-              )}
-            </Stack>
-          </Card>
-
-          <Card minH={{ base: "220px", md: "250px" }}>
-            <Text fontSize="md" color="gray.500" mb={2}>
-              タスク細分化の予定
-            </Text>
-            <Stack gap={3}>
-              {taskEventsStatus === "loading" ? (
-                <Text color="gray.500" fontSize="md">
-                  読み込み中...
-                </Text>
-              ) : upcomingTaskEvents.length === 0 ? (
-                <Text color="gray.500" fontSize="md">
-                  直近の細分化予定はありません
-                </Text>
-              ) : (
-                upcomingTaskEvents.map((eventItem) => (
-                  <HStack key={eventItem.key} align="start" gap={3}>
-                    <Box
-                      mt="6px"
-                      w="10px"
-                      h="10px"
-                      borderRadius="full"
-                      bg="blue.500"
-                    />
-                    <Stack gap={1}>
-                      <HStack gap={2}>
-                        <Text
-                          px={2}
-                          py={0.5}
-                          borderRadius="md"
-                          bg="blue.50"
-                          color="blue.700"
-                          fontSize="sm"
-                          fontWeight="semibold"
-                          lineHeight={1.2}
-                        >
-                          {toJstHHmm(eventItem.startAt)}
-                        </Text>
-                        <Text fontSize="sm" color="gray.500">
-                          {eventDurationMinutes(
-                            eventItem.startAt,
-                            eventItem.endAt,
-                          )}
-                          分
-                        </Text>
-                      </HStack>
-                      <Text
-                        fontSize={{ base: "lg", md: "xl" }}
-                        fontWeight="semibold"
-                        color="gray.800"
-                        lineHeight={1.3}
-                        overflow="hidden"
-                        textOverflow="ellipsis"
-                        whiteSpace="nowrap"
-                      >
-                        {truncateText(eventItem.subtaskTitle, 24)}
-                      </Text>
-                      <Text
-                        fontSize={{ base: "sm", md: "md" }}
-                        color="gray.500"
-                        overflow="hidden"
-                        textOverflow="ellipsis"
-                        whiteSpace="nowrap"
-                      >
-                        {truncateText(eventItem.summary, 36)}
-                      </Text>
-                      <Text
-                        fontSize={{ base: "sm", md: "md" }}
-                        color="gray.500"
-                        overflow="hidden"
-                        textOverflow="ellipsis"
-                        whiteSpace="nowrap"
-                      >
-                        元タスク: {truncateText(eventItem.taskInput, 20)}
-                      </Text>
-                    </Stack>
-                  </HStack>
-                ))
-              )}
-              {taskEventsStatus === "error" && (
-                <Text color="orange.600" fontSize="sm">
-                  細分化予定の取得に失敗しました。
-                </Text>
-              )}
-            </Stack>
-          </Card>
-
-          <Card minH={{ base: "180px", md: "210px" }}>
-            <Text fontSize="md" color="gray.500" mb={2}>
-              天気
-            </Text>
             <Grid
-              templateColumns={{ base: "1fr", md: "1fr 1fr" }}
-              gap={3}
-              alignItems="center"
+              templateColumns={{
+                base: "1fr",
+                md: "repeat(2, minmax(0, 1fr))",
+                xl: "repeat(12, minmax(0, 1fr))",
+              }}
+              gap={{ base: 4, md: 5 }}
+              alignItems="stretch"
             >
-              <HStack gap={3}>
-                <Text fontSize="3xl">
-                  {weather?.umbrellaNeeded ? "☔" : "☀️"}
-                </Text>
-                <Stack gap={0}>
+              <GridItem colSpan={{ base: 1, md: 2, xl: 6 }}>
+                <Card minH={{ base: "180px", md: "210px" }}>
+                  <Stack h="full" justify="center" gap={1}>
+                    <Text
+                      color="gray.700"
+                      fontSize={{ base: "sm", md: "md" }}
+                      letterSpacing="0.08em"
+                    >
+                      出発まで
+                    </Text>
+                    <Text
+                      fontSize={{ base: "5xl", md: "7xl" }}
+                      fontWeight="bold"
+                      color="gray.800"
+                      lineHeight={1}
+                    >
+                      {departure}
+                    </Text>
+                    <HStack
+                      gap={3}
+                      flexWrap="wrap"
+                      color="gray.600"
+                      fontSize={{ base: "md", md: "lg" }}
+                    >
+                      <Text>
+                        遅刻リスク{" "}
+                        <Text
+                          as="span"
+                          color={lateRisk >= 60 ? "red.600" : "green.700"}
+                          fontWeight="semibold"
+                        >
+                          {lateRisk}%
+                        </Text>
+                      </Text>
+                      <Text>移動 {transitMinutes}分</Text>
+                    </HStack>
+                    <Text
+                      color="gray.500"
+                      fontSize={{ base: "sm", md: "md" }}
+                      overflow="hidden"
+                      textOverflow="ellipsis"
+                      whiteSpace="nowrap"
+                    >
+                      経路: {truncateText(transitSummary, 52)}
+                    </Text>
+                  </Stack>
+                </Card>
+              </GridItem>
+
+              <GridItem colSpan={{ base: 1, md: 1, xl: 3 }}>
+                <Card minH={{ base: "160px", md: "210px" }}>
+                  <Text fontSize="md" color="gray.500" mb={1}>
+                    交通
+                  </Text>
                   <Text
                     fontSize={{ base: "3xl", md: "4xl" }}
                     fontWeight="semibold"
                     color="gray.800"
                   >
-                    {weather ? `${weather.precipitationProbability}%` : "--%"}
+                    {transitMinutes}
+                    <Text
+                      as="span"
+                      fontSize="xl"
+                      color="gray.500"
+                      fontWeight="normal"
+                    >
+                      分
+                    </Text>
                   </Text>
-                  <Text fontSize={{ base: "md", md: "lg" }} color="gray.600">
-                    {weather?.umbrellaNeeded ? "傘あり" : "晴れ"}
+                  <Text
+                    color="gray.700"
+                    fontSize={{ base: "md", md: "lg" }}
+                    fontWeight="semibold"
+                    mt={1}
+                    overflow="hidden"
+                    textOverflow="ellipsis"
+                    whiteSpace="nowrap"
+                  >
+                    {truncateText(transitSummary, 22)}
                   </Text>
-                </Stack>
-              </HStack>
+                </Card>
+              </GridItem>
 
-              <Stack
-                gap={1}
-                color="gray.600"
-                fontSize={{ base: "md", md: "lg" }}
-              >
-                <Text>
-                  降水量 {weather ? `${weather.precipitationMm} mm/h` : "--"}
-                </Text>
-                <Text>{weather?.locationName ?? "-"}</Text>
-                <Text fontSize="sm" color="gray.500">
-                  {weather?.reason ?? "天気情報なし"}
-                </Text>
-              </Stack>
+              <GridItem colSpan={{ base: 1, md: 1, xl: 3 }}>
+                <Card minH={{ base: "160px", md: "210px" }}>
+                  <Text fontSize="md" color="gray.500" mb={1}>
+                    余裕
+                  </Text>
+                  <Text
+                    fontSize={{ base: "3xl", md: "4xl" }}
+                    fontWeight="semibold"
+                    color="gray.800"
+                  >
+                    {Math.max(0, slack)}
+                    <Text
+                      as="span"
+                      fontSize="xl"
+                      color="gray.500"
+                      fontWeight="normal"
+                    >
+                      分
+                    </Text>
+                  </Text>
+                  <Text
+                    color="gray.600"
+                    fontSize={{ base: "md", md: "lg" }}
+                    mt={1}
+                    overflow="hidden"
+                    textOverflow="ellipsis"
+                    whiteSpace="nowrap"
+                  >
+                    {departure}に出れば
+                  </Text>
+                  <Box
+                    mt={3}
+                    h="8px"
+                    bg="gray.200"
+                    borderRadius="full"
+                    overflow="hidden"
+                  >
+                    <Box
+                      h="full"
+                      borderRadius="full"
+                      w={`${Math.min(100, Math.max(0, (Math.max(0, slack) / 60) * 100))}%`}
+                      bg={slack < 5 ? "red.400" : "green.500"}
+                    />
+                  </Box>
+                </Card>
+              </GridItem>
+
+              <GridItem colSpan={{ base: 1, md: 1, xl: 4 }}>
+                <Card minH={{ base: "220px", md: "250px" }}>
+                  <Text fontSize="md" color="gray.500" mb={2}>
+                    今日の予定
+                  </Text>
+                  <Stack gap={3}>
+                    {todayEvents.length === 0 ? (
+                      <Text color="gray.500" fontSize="md">
+                        予定はありません
+                      </Text>
+                    ) : (
+                      todayEvents.slice(0, TODAY_EVENTS_LIMIT).map((event) => (
+                        <HStack key={event.id} align="start" gap={3} w="full">
+                          <Box
+                            mt="6px"
+                            w="10px"
+                            h="10px"
+                            borderRadius="full"
+                            bg="green.500"
+                            flexShrink={0}
+                          />
+                          <Stack gap={1} minW={0} flex="1">
+                            <HStack gap={2}>
+                              <Text
+                                px={2}
+                                py={0.5}
+                                borderRadius="md"
+                                bg="gray.100"
+                                color="gray.700"
+                                fontSize="sm"
+                                fontWeight="semibold"
+                                lineHeight={1.2}
+                              >
+                                {toJstHHmm(event.start)}
+                              </Text>
+                              <Text fontSize="sm" color="gray.500">
+                                {eventDurationMinutes(event.start, event.end)}分
+                              </Text>
+                            </HStack>
+                            <Text
+                              fontSize={{ base: "lg", md: "xl" }}
+                              fontWeight="semibold"
+                              color="gray.800"
+                              lineHeight={1.3}
+                              overflow="hidden"
+                              textOverflow="ellipsis"
+                              whiteSpace="nowrap"
+                            >
+                              {truncateText(event.summary, 26)}
+                            </Text>
+                            <Text
+                              fontSize={{ base: "sm", md: "md" }}
+                              color="gray.500"
+                              overflow="hidden"
+                              textOverflow="ellipsis"
+                              whiteSpace="nowrap"
+                            >
+                              {truncateText(event.location ?? "場所未設定", 24)}
+                            </Text>
+                          </Stack>
+                        </HStack>
+                      ))
+                    )}
+                  </Stack>
+                </Card>
+              </GridItem>
+
+              <GridItem colSpan={{ base: 1, md: 1, xl: 4 }}>
+                <Card minH={{ base: "220px", md: "250px" }}>
+                  <Text fontSize="md" color="gray.500" mb={2}>
+                    タスク細分化の予定
+                  </Text>
+                  <Stack gap={3}>
+                    {taskEventsStatus === "loading" ? (
+                      <Text color="gray.500" fontSize="md">
+                        読み込み中...
+                      </Text>
+                    ) : upcomingTaskEvents.length === 0 ? (
+                      <Text color="gray.500" fontSize="md">
+                        直近の細分化予定はありません
+                      </Text>
+                    ) : (
+                      upcomingTaskEvents.map((eventItem) => (
+                        <HStack
+                          key={eventItem.key}
+                          align="start"
+                          gap={3}
+                          w="full"
+                        >
+                          <Box
+                            mt="6px"
+                            w="10px"
+                            h="10px"
+                            borderRadius="full"
+                            bg="blue.500"
+                            flexShrink={0}
+                          />
+                          <Stack gap={1} minW={0} flex="1">
+                            <HStack gap={2}>
+                              <Text
+                                px={2}
+                                py={0.5}
+                                borderRadius="md"
+                                bg="blue.50"
+                                color="blue.700"
+                                fontSize="sm"
+                                fontWeight="semibold"
+                                lineHeight={1.2}
+                              >
+                                {toJstHHmm(eventItem.startAt)}
+                              </Text>
+                              <Text fontSize="sm" color="gray.500">
+                                {eventDurationMinutes(
+                                  eventItem.startAt,
+                                  eventItem.endAt,
+                                )}
+                                分
+                              </Text>
+                            </HStack>
+                            <Text
+                              fontSize={{ base: "lg", md: "xl" }}
+                              fontWeight="semibold"
+                              color="gray.800"
+                              lineHeight={1.3}
+                              overflow="hidden"
+                              textOverflow="ellipsis"
+                              whiteSpace="nowrap"
+                            >
+                              {truncateText(eventItem.subtaskTitle, 24)}
+                            </Text>
+                            <Text
+                              fontSize={{ base: "sm", md: "md" }}
+                              color="gray.500"
+                              overflow="hidden"
+                              textOverflow="ellipsis"
+                              whiteSpace="nowrap"
+                            >
+                              {truncateText(eventItem.summary, 34)}
+                            </Text>
+                            <Text
+                              fontSize={{ base: "sm", md: "md" }}
+                              color="gray.500"
+                              overflow="hidden"
+                              textOverflow="ellipsis"
+                              whiteSpace="nowrap"
+                            >
+                              元タスク: {truncateText(eventItem.taskInput, 18)}
+                            </Text>
+                          </Stack>
+                        </HStack>
+                      ))
+                    )}
+                    {taskEventsStatus === "error" && (
+                      <Text color="orange.600" fontSize="sm">
+                        細分化予定の取得に失敗しました。
+                      </Text>
+                    )}
+                  </Stack>
+                </Card>
+              </GridItem>
+
+              <GridItem colSpan={{ base: 1, md: 2, xl: 4 }}>
+                <Card minH={{ base: "180px", md: "250px" }}>
+                  <Text fontSize="md" color="gray.500" mb={2}>
+                    天気
+                  </Text>
+                  <Grid
+                    templateColumns={{ base: "1fr", sm: "1fr 1fr" }}
+                    gap={3}
+                    alignItems="center"
+                  >
+                    <HStack gap={3}>
+                      <Text fontSize="3xl">
+                        {weather?.umbrellaNeeded ? "☔" : "☀️"}
+                      </Text>
+                      <Stack gap={0}>
+                        <Text
+                          fontSize={{ base: "3xl", md: "4xl" }}
+                          fontWeight="semibold"
+                          color="gray.800"
+                        >
+                          {weather
+                            ? `${weather.precipitationProbability}%`
+                            : "--%"}
+                        </Text>
+                        <Text
+                          fontSize={{ base: "md", md: "lg" }}
+                          color="gray.600"
+                        >
+                          {weather?.umbrellaNeeded ? "傘あり" : "晴れ"}
+                        </Text>
+                      </Stack>
+                    </HStack>
+
+                    <Stack
+                      gap={1}
+                      color="gray.600"
+                      fontSize={{ base: "md", md: "lg" }}
+                      minW={0}
+                    >
+                      <Text>
+                        降水量{" "}
+                        {weather ? `${weather.precipitationMm} mm/h` : "--"}
+                      </Text>
+                      <Text
+                        overflow="hidden"
+                        textOverflow="ellipsis"
+                        whiteSpace="nowrap"
+                      >
+                        {weather?.locationName ?? "-"}
+                      </Text>
+                      <Text fontSize="sm" color="gray.500">
+                        {weather?.reason ?? "天気情報なし"}
+                      </Text>
+                    </Stack>
+                  </Grid>
+                </Card>
+              </GridItem>
             </Grid>
-          </Card>
 
-          {state.status === "error" && (
-            <Stack align="center" gap={2}>
-              <Text color="red.600" textAlign="center" fontSize="md">
-                {state.errorType === "unauthorized"
-                  ? "ログインが必要です。"
-                  : "API取得に失敗しました。ログイン状態とバックエンド起動を確認してください。"}
-              </Text>
-              {state.errorType === "unauthorized" && (
-                <Button
-                  size="sm"
-                  colorPalette="blue"
-                  onClick={() => {
-                    window.location.assign("/");
-                  }}
-                >
-                  ログイン画面へ
-                </Button>
-              )}
-            </Stack>
-          )}
-        </Stack>
+            {state.status === "error" && (
+              <Card>
+                <Stack align="center" gap={2}>
+                  <Text color="red.600" textAlign="center" fontSize="md">
+                    {state.errorType === "unauthorized"
+                      ? "ログインが必要です。"
+                      : "API取得に失敗しました。ログイン状態とバックエンド起動を確認してください。"}
+                  </Text>
+                  {state.errorType === "unauthorized" && (
+                    <Button
+                      size="sm"
+                      colorPalette="blue"
+                      onClick={() => {
+                        window.location.assign("/");
+                      }}
+                    >
+                      ログイン画面へ
+                    </Button>
+                  )}
+                </Stack>
+              </Card>
+            )}
+          </Stack>
+        </Box>
       </Container>
     </Box>
   );
@@ -621,9 +698,11 @@ function Card({
       borderRadius="2xl"
       p={{ base: 4, md: 5 }}
       minH={minH}
+      h="full"
       borderWidth="1px"
       borderColor="gray.200"
       boxShadow="sm"
+      overflow="hidden"
     >
       {children}
     </Box>
